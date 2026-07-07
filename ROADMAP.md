@@ -8,10 +8,13 @@ See `CHANGELOG.md` for what's actually been done.
 - [x] Proposal reviewed and approved (2026-07-07)
 - [x] Repository created: `README.md`, `ROADMAP.md`, `CHANGELOG.md`,
       `CLAUDE.md`
-- [ ] Confirm with the operator before implementation: commute origin
-      and destination stations, home location for weather, the exact
-      Telegram trigger phrase, and complete the Realtime Trains (and any
-      other) API key signups
+- [x] Commute stations, train times, and home postcode confirmed with
+      the operator and recorded in `config.local.json` (gitignored —
+      see `CLAUDE.md`; `config.example.json` has the shape without real
+      values)
+- [x] Telegram trigger phrase confirmed: `/brief`
+- [ ] Realtime Trains (and any other) API key signup still to be
+      completed by the operator
 
 ## Phase 1 — Minimum viable version
 

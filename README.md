@@ -27,11 +27,17 @@ the other two are still delivered, with a note about what's missing.
 
 ## Data sources
 
-- **Trains**: [Realtime Trains](https://api.rtt.io) for the MVP, with
-  National Rail's official Darwin/LDBWS feed as a fallback option if
-  needed later.
+- **Trains**: [Realtime Trains](https://api.rtt.io) for the MVP.
+  Southeastern has no separate API of its own — like every UK operator,
+  its live data flows through the shared National Rail **Darwin** engine.
+  The official access route is the
+  [Rail Data Marketplace](https://raildata.org.uk) (the older National
+  Rail Data Portal is being retired in early 2026); Realtime Trains is a
+  third-party wrapper over the same underlying data, easier to integrate
+  with for personal use. RDM stays available as a fallback if needed.
 - **Weather**: [Open-Meteo](https://open-meteo.com) — no API key
-  required.
+  required. Paired with [postcodes.io](https://postcodes.io) (also free,
+  no key) to turn a UK postcode into coordinates.
 - **Politics**: BBC News politics RSS feed.
 
 All API keys live in the macOS Keychain, never committed to this
