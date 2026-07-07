@@ -1,0 +1,56 @@
+# Morning Brief
+
+A personal daily briefing delivered over Telegram: Southeastern train
+status for the commute, practical weather advice, and a short summary of
+notable UK politics headlines. Successor to a previous ad hoc setup
+("OpenClaw"), rebuilt as a proper Bizkit-maintained project.
+
+This is a project Bizkit works on, not part of Bizkit's own governance —
+see the `Bizkit` repository (private, this account) for the
+workstation-level engineering standards this project inherits.
+
+## What it does
+
+On request — a manual Telegram command, not a scheduled push; see
+`ROADMAP.md` for why — it replies with:
+
+- **Trains** — live status for a specific Southeastern commute leg:
+  delays, cancellations, and platform number when announced. Platform
+  numbers genuinely aren't always available until close to departure;
+  the brief says so rather than guessing.
+- **Weather** — practical advice for the day (umbrella, temperature),
+  not just raw forecast numbers.
+- **Politics** — a short summary of notable UK headlines.
+
+Each section degrades independently: if one data source is unavailable,
+the other two are still delivered, with a note about what's missing.
+
+## Data sources
+
+- **Trains**: [Realtime Trains](https://api.rtt.io) for the MVP, with
+  National Rail's official Darwin/LDBWS feed as a fallback option if
+  needed later.
+- **Weather**: [Open-Meteo](https://open-meteo.com) — no API key
+  required.
+- **Politics**: BBC News politics RSS feed.
+
+All API keys live in the macOS Keychain, never committed to this
+repository — see `CLAUDE.md`.
+
+## How it's triggered
+
+Through Bizkit's existing Telegram bridge
+(`services/telegram-bridge/` in the `Bizkit` repository). `bridge.py`
+recognizes a specific trigger command and calls directly into this
+project's own code — deterministic data-fetching, not the LLM itself.
+This is a deliberate design choice: the bridge's permission gate denies
+the model general network access (`curl`/`wget`) by design, and this
+project doesn't need or want that changed. If headline text is ever
+summarized by an LLM, that call gets no tool access at all — pure
+text-in/text-out — so third-party feed content can't do anything even in
+principle, only say something.
+
+## Status
+
+Proposal approved 2026-07-07. Not yet implemented — see `ROADMAP.md` for
+the current phase.
