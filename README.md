@@ -27,14 +27,28 @@ the other two are still delivered, with a note about what's missing.
 
 ## Data sources
 
-- **Trains**: [Realtime Trains](https://api.rtt.io) for the MVP.
-  Southeastern has no separate API of its own — like every UK operator,
-  its live data flows through the shared National Rail **Darwin** engine.
-  The official access route is the
+- **Trains**: [Realtime Trains](https://www.realtimetrains.co.uk) for
+  the MVP, via their **Next Generation API** (`data.rtt.io`, launched
+  2026-03). Southeastern has no separate API of its own — like every UK
+  operator, its live data flows through the shared National Rail
+  **Darwin** engine. The official access route is the
   [Rail Data Marketplace](https://raildata.org.uk) (the older National
   Rail Data Portal is being retired in early 2026); Realtime Trains is a
   third-party wrapper over the same underlying data, easier to integrate
   with for personal use. RDM stays available as a fallback if needed.
+
+  **Auth flow** (confirmed working against the real API, see
+  `CHANGELOG.md`): the Keychain-stored secret
+  (`realtimetrains-api-token`) is a long-lived *refresh* token, not used
+  directly against data endpoints. Implementation needs to exchange it
+  for a short-lived access token via `GET data.rtt.io/api/get_access_token`
+  (`Authorization: Bearer <refresh_token>`), cache that access token
+  until its `validUntil` expiry, and use *it* (`Authorization: Bearer
+  <access_token>`) against actual departure-board endpoints — rate
+  limits (30/min, 750/hour) make re-exchanging on every request wasteful
+  and unnecessary. Endpoint paths for actual departure queries are in
+  the [OpenAPI spec](https://realtimetrains.github.io/api-specification/)
+  and still need reviewing before implementation.
 - **Weather**: [Open-Meteo](https://open-meteo.com) — no API key
   required. Paired with [postcodes.io](https://postcodes.io) (also free,
   no key) to turn a UK postcode into coordinates.

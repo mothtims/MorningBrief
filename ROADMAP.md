@@ -3,7 +3,7 @@
 This is a proposal, not a schedule — phases are sequenced by dependency.
 See `CHANGELOG.md` for what's actually been done.
 
-## Phase 0 — Project setup (in progress)
+## Phase 0 — Project setup (complete)
 
 - [x] Proposal reviewed and approved (2026-07-07)
 - [x] Repository created: `README.md`, `ROADMAP.md`, `CHANGELOG.md`,
@@ -13,8 +13,11 @@ See `CHANGELOG.md` for what's actually been done.
       see `CLAUDE.md`; `config.example.json` has the shape without real
       values)
 - [x] Telegram trigger phrase confirmed: `/brief`
-- [ ] Realtime Trains (and any other) API key signup still to be
-      completed by the operator
+- [x] Realtime Trains API signup complete; refresh token stored in
+      Keychain (`realtimetrains-api-token`) and verified against the
+      real `/api/get_access_token` endpoint (HTTP 200, valid token
+      returned, entitlements empty as expected) — see `README.md` for
+      the auth flow this implies for implementation
 
 ## Phase 1 — Minimum viable version
 
