@@ -41,3 +41,42 @@ versioning (pre-release, personal-use project).
   for a short-lived access token first. Verified this end-to-end against
   the real API before recording it, rather than trusting either the old
   docs or assumption.
+- Replaced the ambiguous single `origin_station_crs`/`destination_station_crs`
+  config pair with explicit `morning_leg`/`evening_leg` objects (each
+  with `from`, `to`, `departs`), after realizing the original fields
+  didn't actually match the stated commute direction. Caught before any
+  code was written.
+
+### Added — Phase 1 (MVP) implementation
+- `trains.py`: Realtime Trains fetcher. Implements and caches the
+  two-step Bearer-token exchange (`state/rtt_access_token.json`,
+  respecting `validUntil`); queries `gb-nr/location` filtered by
+  destination; picks the service closest to the configured departure
+  time; reports operator, on-time/delay/cancelled status, and platform
+  (or "not yet announced"). Verified against real Cannon
+  Street↔Whitstable services in both directions.
+- `weather.py`: postcode → coordinates (postcodes.io) → forecast
+  (Open-Meteo) → plain practical advice (umbrella/temperature
+  thresholds), not raw numbers.
+- `politics.py`: BBC politics RSS → top headlines → summarized into a
+  short paragraph by a `claude -p` call with zero tool access
+  (`.claude/settings-notools.json`) — deliberately no `Read`/`Bash`/etc.
+  available, so third-party feed content has nothing to act on, only
+  something to (at most) say.
+- `brief.py`: orchestrator. Picks the morning or evening leg by time of
+  day, calls all three fetchers, assembles the final message. This is
+  what `bridge.py` invokes.
+- Added `custom_commands` routing to Bizkit's `bridge.py` (small,
+  reviewed diff — see Bizkit `CHANGELOG.md` and `DECISIONS.md`
+  ADR-0011): `/brief` now bypasses `invoke_claude()` entirely and runs
+  `brief.py` directly as a subprocess. The bridge's existing permission
+  gate is completely untouched by this integration.
+- End-to-end live test over Telegram: confirmed working, correct
+  section for each data source, graceful under real conditions.
+
+### Fixed
+- A real bug caught during implementation, not review: `trains.py`'s
+  first version built the RTT query URL by raw string concatenation,
+  so the `+` in `+01:00` (timezone offset) was interpreted as a literal
+  space by the server, causing HTTP 400s. Fixed by using
+  `urllib.parse.urlencode` for all query parameters instead.

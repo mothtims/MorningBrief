@@ -19,23 +19,26 @@ See `CHANGELOG.md` for what's actually been done.
       returned, entitlements empty as expected) — see `README.md` for
       the auth flow this implies for implementation
 
-## Phase 1 — Minimum viable version
+## Phase 1 — Minimum viable version (complete, 2026-07-07)
 
 Manual trigger only — no scheduling, no proactive messages. On request,
 replies with train status, weather advice, and a politics summary in one
 message. Each section degrades independently if its source fails.
 
-- [ ] Small, reviewable addition to `bridge.py` (in the Bizkit
-      repository) so it recognizes the trigger command and routes it to
-      this project's code, rather than through the general `claude -p`
-      flow
-- [ ] Train status fetcher (Realtime Trains)
-- [ ] Weather advice fetcher (Open-Meteo)
-- [ ] Politics headline summary (BBC RSS; optionally LLM-summarized with
-      no tool access)
-- [ ] API keys in Keychain; commute/location config gitignored
-      (`config.local.json`, with `config.example.json` as the template)
-- [ ] End-to-end manual test over Telegram
+- [x] Small, reviewable addition to `bridge.py` (in the Bizkit
+      repository): a `custom_commands` config mapping routes `/brief`
+      directly to `brief.py` as a plain subprocess, bypassing
+      `invoke_claude()` entirely — see Bizkit `DECISIONS.md` ADR-0011
+- [x] Train status fetcher (`trains.py`) — Realtime Trains, two-step
+      Bearer-token exchange with access-token caching
+- [x] Weather advice fetcher (`weather.py`) — postcodes.io + Open-Meteo
+- [x] Politics headline summary (`politics.py`) — BBC RSS, summarized by
+      a `claude -p` call with zero tool access
+      (`.claude/settings-notools.json`)
+- [x] Orchestrator (`brief.py`) — picks morning or evening leg by time
+      of day, assembles the final message
+- [x] API keys in Keychain; commute/location config gitignored
+- [x] End-to-end manual test over Telegram — confirmed working
 
 ## Phase 2 — Later versions
 

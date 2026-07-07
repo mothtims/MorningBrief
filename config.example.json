@@ -1,8 +1,6 @@
 {
-  "origin_station_crs": "CST",
-  "destination_station_crs": "WHI",
-  "morning_train_time": "07:39",
-  "evening_train_time": "17:11",
+  "morning_leg": { "from": "WHI", "to": "CST", "departs": "07:39" },
+  "evening_leg": { "from": "CST", "to": "WHI", "departs": "17:11" },
   "home_postcode": "AA1 1AA",
   "telegram_trigger_phrase": "/brief"
 }

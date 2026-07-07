@@ -1,0 +1,9 @@
+[project]
+name = "morning-brief"
+version = "0.1.0"
+description = "Telegram-delivered morning briefing: train status, weather advice, UK politics summary."
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.uv]
+package = false
