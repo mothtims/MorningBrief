@@ -11,8 +11,8 @@ workstation-level engineering standards this project inherits.
 
 ## What it does
 
-On request — a manual Telegram command, not a scheduled push; see
-`ROADMAP.md` for why — it replies with:
+Two ways to get it: a manual Telegram command (`/brief`), or
+automatically twice on weekdays. Either way, it replies with:
 
 - **Trains** — live status for a specific Southeastern commute leg:
   delays, cancellations, and platform number when announced. Platform
@@ -70,11 +70,25 @@ The one LLM call involved, in `politics.py`, gets zero tool access —
 pure text-in/text-out — so third-party feed content can't do anything
 even in principle, only say something.
 
+## Scheduled delivery
+
+Weekdays at 07:00 and 16:30, `launchd` (`com.morningbrief.scheduled`,
+`~/Library/LaunchAgents/`) runs `scheduled_send.py`, which builds the
+brief and sends it via Bizkit's `send_message.py` — independent of the
+manual `/brief` path above, and independent of whether the polling
+bridge is even running. See Bizkit's `DECISIONS.md` ADR-0012 for why
+proactive sending is a separate, minimal primitive rather than a new
+mode of the bridge. Same caveat as the rest of Bizkit: if the machine is
+asleep at 07:00 or 16:30, that run just doesn't happen — accepted, not a
+bug (see Bizkit `DECISIONS.md`, "resident engineer, not cloud service").
+
 ## Files
 
 - `brief.py` — orchestrator; picks morning or evening leg by time of
   day, calls the three fetchers below, assembles the final message.
-  This is what `bridge.py` invokes directly.
+  Used by both delivery paths.
+- `scheduled_send.py` — entry point for the `launchd` schedule; calls
+  `brief.py` then pipes the result to Bizkit's `send_message.py`.
 - `trains.py`, `weather.py`, `politics.py` — the three fetchers, each
   independently degrading to a plain-text "unavailable" message on
   failure rather than raising.
@@ -82,8 +96,12 @@ even in principle, only say something.
   legs, home postcode, trigger phrase.
 - `.claude/settings-notools.json` — the empty-permission profile used
   for the politics summarization call.
+- `launchd/com.morningbrief.scheduled.plist.template` — the schedule
+  (weekdays, 07:00 and 16:30); copy to `~/Library/LaunchAgents/` with
+  placeholders substituted per the comment at its top.
 
 ## Status
 
-Phase 1 (MVP) complete and live as of 2026-07-07 — see `ROADMAP.md`.
-Manual `/brief` command only; no scheduling or proactive messages yet.
+Phase 2's first item (scheduled proactive delivery) is live as of
+2026-07-23 — see `ROADMAP.md`. Both the manual `/brief` command and the
+weekday 07:00/16:30 schedule are active.

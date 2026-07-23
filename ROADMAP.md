@@ -42,14 +42,19 @@ message. Each section degrades independently if its source fails.
 
 ## Phase 2 — Later versions
 
-Blocked on Bizkit's own Phase 4 "later tier" — the Telegram bridge is
-currently reply-only by design; unsolicited/proactive messages aren't
-built yet:
+The proactive-messaging blocker is resolved — Bizkit's Phase 4 gained
+`send_message.py` (see Bizkit `DECISIONS.md` ADR-0012), a standalone
+primitive independent of the reply-only poll loop:
 
-- [ ] Scheduled proactive morning briefing
+- [x] Scheduled proactive morning briefing (2026-07-23) — `scheduled_send.py`
+      builds the brief and sends it via Bizkit's `send_message.py`;
+      `launchd/com.morningbrief.scheduled.plist.template` fires weekdays
+      at 07:00 and 16:30. Verified under real `launchd` conditions (a
+      forced `kickstart`, not just a manual script run) before trusting
+      it to fire unattended.
 - [ ] Real-time disruption alerts
 
-Not blocked — can happen anytime after Phase 1:
+Not blocked — can happen anytime:
 
 - [ ] Return-journey / multi-leg commute support
 - [ ] Richer weather (hourly breakdown, official warnings)

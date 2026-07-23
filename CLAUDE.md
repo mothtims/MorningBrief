@@ -24,3 +24,7 @@ This repository additionally:
 - Caches non-secret runtime state (e.g. the RTT short-lived access
   token) in a gitignored `state/` directory, same pattern as the
   Telegram bridge.
+- Delivers scheduled briefs via Bizkit's `send_message.py`
+  (`scheduled_send.py`, `launchd/`), independent of the polling bridge
+  — see Bizkit's `DECISIONS.md` ADR-0012. Scheduling is this project's
+  own responsibility; the bridge has no concept of when to send.

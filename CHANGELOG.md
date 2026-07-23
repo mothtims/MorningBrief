@@ -3,6 +3,25 @@
 All notable changes to this project. Entries are dated; no semantic
 versioning (pre-release, personal-use project).
 
+## 2026-07-23
+
+### Added — Phase 2 (scheduled delivery)
+- Added `scheduled_send.py`: builds the brief via `brief.py` and pipes
+  it to Bizkit's new `send_message.py` primitive
+  (`services/telegram-bridge/`, see Bizkit `DECISIONS.md` ADR-0012),
+  independent of the manual `/brief` path and of whether the polling
+  bridge is running.
+- Added `launchd/com.morningbrief.scheduled.plist.template`: weekdays,
+  07:00 and 16:30 (ahead of the 07:39 and 17:11 commute legs). A
+  periodic task, not a persistent daemon — no `RunAtLoad`/`KeepAlive`.
+  Registered and verified under real `launchd` conditions with a forced
+  `kickstart` before trusting it to fire unattended, not just tested by
+  running the script manually.
+- This was the first item in Phase 2 that was explicitly blocked on
+  Bizkit's own infrastructure (no proactive-messaging capability
+  existed before today) — see Bizkit's `CHANGELOG.md` for the
+  `send_message.py` addition that unblocked it.
+
 ## 2026-07-07
 
 ### Added

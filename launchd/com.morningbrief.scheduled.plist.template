@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Template only. Do not load this file directly — copy it to
+  ~/Library/LaunchAgents/com.morningbrief.scheduled.plist and replace
+  every __PROJECT_DIR__ with the absolute path to this directory,
+  __PYTHON3__ with an absolute Python 3.11+ interpreter path, and
+  __HOME__ per the comment, first. See ../README.md.
+
+  This is a periodic task, not a persistent daemon — no RunAtLoad, no
+  KeepAlive. It fires at the times in StartCalendarInterval, runs
+  briefly, and exits. launchd's minimal PATH gotcha applies here too
+  (see Bizkit's services/telegram-bridge/launchd/ template for the full
+  explanation) — hence the absolute interpreter path and explicit PATH
+  below, same pattern.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.morningbrief.scheduled</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>__PYTHON3__</string>
+        <string>__PROJECT_DIR__/scheduled_send.py</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>__PROJECT_DIR__</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:__HOME__/.local/bin</string>
+    </dict>
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>7</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>7</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>7</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>7</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>7</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>16</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>16</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>16</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>16</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>16</integer><key>Minute</key><integer>30</integer></dict>
+    </array>
+    <key>StandardOutPath</key>
+    <string>__PROJECT_DIR__/state/scheduled.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>__PROJECT_DIR__/state/scheduled.err.log</string>
+</dict>
+</plist>
