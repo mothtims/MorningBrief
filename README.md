@@ -92,6 +92,10 @@ bug (see Bizkit `DECISIONS.md`, "resident engineer, not cloud service").
 - `trains.py`, `weather.py`, `politics.py` — the three fetchers, each
   independently degrading to a plain-text "unavailable" message on
   failure rather than raising.
+- `httputil.py` / `logutil.py` — shared HTTP-GET-with-retry and rotating
+  file logging used by all three fetchers (`state/morningbrief.log`,
+  gitignored), added 2026-07-30 after a weather failure turned out to
+  be undiagnosable — nothing had ever been logged.
 - `config.local.json` (gitignored) / `config.example.json` — commute
   legs, home postcode, trigger phrase.
 - `.claude/settings-notools.json` — the empty-permission profile used

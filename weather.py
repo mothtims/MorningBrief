@@ -5,9 +5,12 @@ Weather fetcher: UK postcode -> coordinates (postcodes.io) -> forecast
 
 from __future__ import annotations
 
-import json
 import urllib.parse
-import urllib.request
+
+from httputil import get_json
+from logutil import get_logger
+
+log = get_logger("weather")
 
 POSTCODES_IO_BASE = "https://api.postcodes.io/postcodes"
 OPEN_METEO_BASE = "https://api.open-meteo.com/v1/forecast"
@@ -36,14 +39,9 @@ _WMO_DESCRIPTIONS = {
 }
 
 
-def _http_get_json(url: str) -> dict:
-    with urllib.request.urlopen(url, timeout=15) as resp:
-        return json.loads(resp.read().decode("utf-8"))
-
-
 def postcode_to_coords(postcode: str) -> tuple[float, float]:
     encoded = urllib.parse.quote(postcode)
-    data = _http_get_json(f"{POSTCODES_IO_BASE}/{encoded}")
+    data = get_json(f"{POSTCODES_IO_BASE}/{encoded}", log)
     result = data["result"]
     return result["latitude"], result["longitude"]
 
@@ -58,7 +56,7 @@ def get_forecast(latitude: float, longitude: float) -> dict:
             "forecast_days": 1,
         }
     )
-    return _http_get_json(f"{OPEN_METEO_BASE}?{query}")
+    return get_json(f"{OPEN_METEO_BASE}?{query}", log)
 
 
 def summarize_weather(postcode: str) -> str:
@@ -66,6 +64,7 @@ def summarize_weather(postcode: str) -> str:
         lat, lon = postcode_to_coords(postcode)
         forecast = get_forecast(lat, lon)
     except Exception as exc:
+        log.error("Weather fetch failed after retries: %s", exc, exc_info=True)
         return f"Weather unavailable right now ({exc})."
 
     daily = forecast["daily"]

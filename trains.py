@@ -13,9 +13,13 @@ from __future__ import annotations
 import json
 import subprocess
 import urllib.parse
-import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
+
+from httputil import get_json
+from logutil import get_logger
+
+log = get_logger("trains")
 
 STATE_DIR = Path(__file__).resolve().parent / "state"
 ACCESS_TOKEN_CACHE = STATE_DIR / "rtt_access_token.json"
@@ -37,12 +41,6 @@ def _load_refresh_token() -> str:
     return result.stdout.strip()
 
 
-def _http_get_json(url: str, bearer_token: str) -> dict:
-    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {bearer_token}"})
-    with urllib.request.urlopen(req, timeout=15) as resp:
-        return json.loads(resp.read().decode("utf-8"))
-
-
 def get_access_token() -> str:
     if ACCESS_TOKEN_CACHE.exists():
         cached = json.loads(ACCESS_TOKEN_CACHE.read_text())
@@ -51,7 +49,11 @@ def get_access_token() -> str:
             return cached["token"]
 
     refresh_token = _load_refresh_token()
-    data = _http_get_json(f"{BASE_URL}/api/get_access_token", refresh_token)
+    data = get_json(
+        f"{BASE_URL}/api/get_access_token",
+        log,
+        headers={"Authorization": f"Bearer {refresh_token}"},
+    )
 
     STATE_DIR.mkdir(exist_ok=True)
     ACCESS_TOKEN_CACHE.write_text(json.dumps(data))
@@ -68,7 +70,11 @@ def get_departures(from_crs: str, to_crs: str, time_from_iso: str, window_minute
             "timeWindow": window_minutes,
         }
     )
-    data = _http_get_json(f"{BASE_URL}/gb-nr/location?{query}", access_token)
+    data = get_json(
+        f"{BASE_URL}/gb-nr/location?{query}",
+        log,
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
     return data.get("services", [])
 
 
@@ -81,6 +87,7 @@ def summarize_leg(from_crs: str, to_crs: str, departs_hhmm: str) -> str:
     try:
         services = get_departures(from_crs, to_crs, time_from, window_minutes=120)
     except Exception as exc:
+        log.error("Train fetch failed after retries: %s", exc, exc_info=True)
         return f"Train status unavailable right now ({exc})."
 
     if not services:

@@ -13,9 +13,13 @@ problem for a personal daily brief.
 from __future__ import annotations
 
 import subprocess
-import urllib.request
 import xml.etree.ElementTree as ET
 from pathlib import Path
+
+from httputil import get_bytes
+from logutil import get_logger
+
+log = get_logger("politics")
 
 RSS_URL = "https://feeds.bbci.co.uk/news/politics/rss.xml"
 SETTINGS_PATH = Path(__file__).resolve().parent / ".claude" / "settings-notools.json"
@@ -23,10 +27,7 @@ HEADLINE_COUNT = 4
 
 
 def fetch_headlines(count: int = HEADLINE_COUNT) -> list[tuple[str, str]]:
-    req = urllib.request.Request(RSS_URL, headers={"User-Agent": "MorningBrief/0.1"})
-    with urllib.request.urlopen(req, timeout=15) as resp:
-        xml_bytes = resp.read()
-
+    xml_bytes = get_bytes(RSS_URL, log, headers={"User-Agent": "MorningBrief/0.1"})
     root = ET.fromstring(xml_bytes)
     items = root.findall("./channel/item")[:count]
     return [
@@ -39,6 +40,7 @@ def summarize_politics() -> str:
     try:
         headlines = fetch_headlines()
     except Exception as exc:
+        log.error("Headline fetch failed after retries: %s", exc, exc_info=True)
         return f"Politics headlines unavailable right now ({exc})."
 
     if not headlines:
@@ -71,6 +73,11 @@ def summarize_politics() -> str:
     )
 
     if result.returncode != 0:
+        log.error(
+            "claude -p summarization failed (exit %s): stderr=%r",
+            result.returncode,
+            result.stderr[:2000],
+        )
         # Fall back to a plain headline list rather than fail the whole brief.
         return "Headlines: " + "; ".join(title for title, _ in headlines)
 

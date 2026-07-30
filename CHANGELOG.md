@@ -3,6 +3,31 @@
 All notable changes to this project. Entries are dated; no semantic
 versioning (pre-release, personal-use project).
 
+## 2026-07-30
+
+### Fixed
+- Investigated reports of the weather section failing "pretty
+  regularly." Root cause: `weather.py` had zero retry logic and
+  swallowed every failure straight into the delivered message text
+  (e.g. "Weather unavailable right now (HTTP Error 503: ...)"), with
+  nothing logged anywhere — so the only evidence of a failure was
+  whatever the operator happened to read in Telegram. Both
+  `postcodes.io` and Open-Meteo tested healthy at investigation time,
+  consistent with an intermittent transient issue rather than a hard
+  outage or a bug in the request itself.
+- Added `httputil.py` (shared HTTP-GET-with-retry: 3 attempts,
+  short backoff, immediate raise on non-retryable 4xx) and
+  `logutil.py` (shared rotating-file logger, `state/morningbrief.log`,
+  gitignored). Applied to all three fetchers (`weather.py`,
+  `trains.py`, `politics.py`), not just weather, since all three had
+  the identical gap. Verified against a real simulated 503/timeout
+  (`httpbin.org/status/503`) that retries and logging both fire
+  correctly, and re-verified the happy path still works for all three
+  after the refactor.
+- `politics.py`'s `claude -p` summarization failure fallback (silently
+  degrading to a plain headline list) now also logs the failure
+  instead of vanishing silently.
+
 ## 2026-07-23
 
 ### Added — Phase 2 (scheduled delivery)
