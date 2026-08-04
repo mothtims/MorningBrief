@@ -25,6 +25,13 @@ RSS_URL = "https://feeds.bbci.co.uk/news/politics/rss.xml"
 SETTINGS_PATH = Path(__file__).resolve().parent / ".claude" / "settings-notools.json"
 HEADLINE_COUNT = 4
 
+# Absolute path, not a bare "claude" lookup: this script can run under
+# launchd (via scheduled_send.py), which gets a minimal PATH that
+# excludes ~/.local/bin - same gotcha already hit and fixed for
+# bridge.py and its own launchd plist. A bare lookup here would fail
+# with a bewildering "exit 1, empty stderr" rather than a clear error.
+CLAUDE_BINARY = "/Users/mothtims/.local/bin/claude"
+
 
 def fetch_headlines(count: int = HEADLINE_COUNT) -> list[tuple[str, str]]:
     xml_bytes = get_bytes(RSS_URL, log, headers={"User-Agent": "MorningBrief/0.1"})
@@ -54,28 +61,33 @@ def summarize_politics() -> str:
         f"{headline_text}"
     )
 
-    result = subprocess.run(
-        [
-            "claude",
-            "-p",
-            prompt,
-            "--permission-mode",
-            "dontAsk",
-            "--settings",
-            str(SETTINGS_PATH),
-            "--output-format",
-            "json",
-        ],
-        cwd=Path(__file__).resolve().parent,
-        capture_output=True,
-        text=True,
-        timeout=60,
-    )
+    try:
+        result = subprocess.run(
+            [
+                CLAUDE_BINARY,
+                "-p",
+                prompt,
+                "--permission-mode",
+                "dontAsk",
+                "--settings",
+                str(SETTINGS_PATH),
+                "--output-format",
+                "json",
+            ],
+            cwd=Path(__file__).resolve().parent,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
+        log.error("claude -p invocation failed to run at all: %s", exc, exc_info=True)
+        return "Headlines: " + "; ".join(title for title, _ in headlines)
 
     if result.returncode != 0:
         log.error(
-            "claude -p summarization failed (exit %s): stderr=%r",
+            "claude -p summarization failed (exit %s): stdout=%r stderr=%r",
             result.returncode,
+            result.stdout[:2000],
             result.stderr[:2000],
         )
         # Fall back to a plain headline list rather than fail the whole brief.

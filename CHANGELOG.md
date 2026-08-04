@@ -3,6 +3,39 @@
 All notable changes to this project. Entries are dated; no semantic
 versioning (pre-release, personal-use project).
 
+## 2026-08-04
+
+### Checked
+- Reviewed `state/morningbrief.log` after ~5 days with the 2026-07-30
+  retry/logging fix in place. Confirmed the original bug (weather 503s
+  degrading silently) is fixed: real `HTTP 503`s from Open-Meteo hit
+  twice (Jul 30, Jul 31) and both times the retry succeeded — no
+  degraded message reached the operator.
+
+### Found and fixed
+- A separate, more serious pattern surfaced: `socket.gaierror` (DNS
+  resolution failure) hit all three fetchers simultaneously across 4
+  runs between 2026-08-03 07:45 and 2026-08-04 07:30 — a
+  workstation/network-level outage, not an issue with any of the three
+  APIs. Retries can't fix a genuinely absent network; noted as a known
+  failure mode rather than "fixed," since there's nothing at the
+  application layer to do about it beyond what already exists (retry,
+  log, degrade gracefully).
+- Found and fixed a real, distinct bug this surfaced: twice (2026-08-03
+  23:17, 2026-08-04 07:30), right after the RSS fetch recovered from
+  the DNS flakiness above, `politics.py`'s `claude -p` call failed with
+  exit 1 and *empty* stderr — no diagnostic information at all. Root
+  cause: `politics.py` invoked `claude` as a bare command rather than
+  an absolute path, the same PATH-resolution gotcha already hit and
+  fixed for `bridge.py` under `launchd` (see Bizkit's `DESIGN.md`) —
+  but that fix was never applied here. Fixed by using the same absolute
+  path (`~/.local/bin/claude`), and by logging `stdout` in addition to
+  `stderr` on failure, and by explicitly catching `FileNotFoundError`
+  with a clear message instead of letting a bad path degrade into an
+  opaque exit code. Verified the improved diagnostics work by
+  deliberately breaking the path and confirming a clear log message
+  appears — not just assumed the fix helps.
+
 ## 2026-07-30
 
 ### Fixed
