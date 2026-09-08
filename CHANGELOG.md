@@ -5,6 +5,18 @@ versioning (pre-release, personal-use project).
 
 ## 2026-09-08
 
+### Fixed
+- A manual afternoon test run of the voice pipeline (verifying the new
+  calendar feature) surfaced that `voice_script.py`'s prompt always
+  opened with "Good morning" regardless of actual send time, since it
+  hardcoded "spoken morning briefing script." Masked in production
+  because the voice `launchd` job currently only runs at 07:00, but
+  would misfire on any manual trigger later in the day or if the
+  schedule ever expands. Fixed by computing an actual time-of-day
+  label (morning/afternoon/evening) and passing it into the prompt,
+  with an explicit instruction not to assume morning. Verified for
+  real at 17:02 BST — correctly opened with "Good afternoon."
+
 ### Added — Voice edition v1
 - Added a spoken audio briefing delivered as a Telegram voice note,
   alongside the existing text brief (not instead of it — an

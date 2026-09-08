@@ -14,6 +14,7 @@ insurance and keeps the security posture consistent project-wide.
 from __future__ import annotations
 
 import subprocess
+from datetime import datetime
 
 import anthropic
 
@@ -25,9 +26,22 @@ log = get_logger("voice.script")
 KEYCHAIN_SERVICE_NAME = "morningbrief-anthropic-api-key"
 MODEL = "claude-opus-4-8"
 
+
+def _time_of_day_label(now: datetime | None = None) -> str:
+    hour = (now or datetime.now()).hour
+    if hour < 12:
+        return "morning"
+    elif hour < 18:
+        return "afternoon"
+    else:
+        return "evening"
+
+
 SCRIPT_PROMPT_TEMPLATE = """\
-You're writing a spoken morning briefing script for one person, to be \
-read aloud by a text-to-speech voice at a natural, unhurried pace. \
+You're writing a spoken daily briefing script for one person, to be \
+read aloud by a text-to-speech voice at a natural, unhurried pace. It's \
+currently the {time_of_day} - open with a greeting appropriate to that \
+(e.g. "good {time_of_day}"), not necessarily "good morning." \
 Target 140-170 words total - that's roughly 60-90 seconds spoken aloud, \
 which matters more than hitting an exact word count.
 
@@ -79,6 +93,7 @@ def generate_script(data: BriefData) -> str:
     client = anthropic.Anthropic(api_key=_load_api_key())
 
     prompt = SCRIPT_PROMPT_TEMPLATE.format(
+        time_of_day=_time_of_day_label(),
         calendar_line=data.calendar_line,
         train_line=data.train_line,
         weather_line=data.weather_line,
