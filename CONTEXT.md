@@ -59,7 +59,11 @@ the user's own machine.
   carries tech news (Ars Technica + BBC Technology) instead — a swap,
   not an addition. Reuses the same hour check that already picks the
   commute leg (`is_morning_send()`), not a second independent switch.
-  See `DECISIONS.md` ADR-0002.
+  See `DECISIONS.md` ADR-0002. Both launchd jobs kickstarted for real
+  on 2026-09-08 to verify the rotation: text and voice both fired
+  cleanly (exit 0, no errors logged), correctly picked the tech
+  section for the afternoon/evening send, and the user confirmed both
+  messages arrived in Telegram and sounded right.
 - **v2 (not started)**: Cloudflare R2 hosting + iOS Shortcuts pull +
   optional podcast RSS feed, so the brief is available outside
   Telegram too.
