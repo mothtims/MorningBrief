@@ -2,8 +2,16 @@
 name = "morning-brief"
 version = "0.1.0"
 description = "Telegram-delivered morning briefing: train status, weather advice, UK politics summary."
-requires-python = ">=3.11"
-dependencies = []
+# Upper bound is load-bearing, not incidental: onnxruntime==1.23.0 (see
+# below) has no wheel for Python 3.14+, and no version of onnxruntime
+# past 1.23.0 has an x86_64 macOS wheel at all (this workstation is
+# Intel). See voice_tts.py's module docstring for the full story.
+requires-python = ">=3.11,<3.14"
+dependencies = [
+    "anthropic>=1.4.0",
+    "onnxruntime==1.23.0",
+    "piper-tts>=1.8.0",
+]
 
 [tool.uv]
 package = false

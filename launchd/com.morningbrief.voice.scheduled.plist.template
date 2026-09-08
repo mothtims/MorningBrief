@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Template only. Do not load this file directly — copy it to
+  ~/Library/LaunchAgents/com.morningbrief.voice.scheduled.plist and
+  replace every __PROJECT_DIR__ with the absolute path to this
+  directory, and __HOME__ per the comment, first. See ../README.md and
+  ../VOICE_PROPOSAL.md.
+
+  IMPORTANT — different from the text job's plist: __PROJECT_DIR__'s
+  interpreter is NOT a bare system python3. The voice pipeline needs
+  this project's uv-managed venv (anthropic, piper-tts, onnxruntime) -
+  unlike the original text-only pipeline, which has zero third-party
+  dependencies and runs fine under any system Python. ProgramArguments
+  below hardcodes __PROJECT_DIR__/.venv/bin/python3 for exactly this
+  reason - do not substitute a different interpreter here.
+
+  Separate launchd job from com.morningbrief.scheduled.plist
+  (deliberately - see VOICE_PROPOSAL.md section 4): weekday mornings
+  only, alongside the existing twice-daily text schedule, not replacing
+  it. A voice-pipeline failure here can never affect the text job's own
+  reliability, since they're independent launchd jobs entirely.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.morningbrief.voice.scheduled</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>__PROJECT_DIR__/.venv/bin/python3</string>
+        <string>__PROJECT_DIR__/scheduled_send_voice.py</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>__PROJECT_DIR__</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:__HOME__/.local/bin</string>
+    </dict>
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>7</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>7</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>7</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>7</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>7</integer><key>Minute</key><integer>0</integer></dict>
+    </array>
+    <key>StandardOutPath</key>
+    <string>__PROJECT_DIR__/state/scheduled_voice.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>__PROJECT_DIR__/state/scheduled_voice.err.log</string>
+</dict>
+</plist>

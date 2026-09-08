@@ -2,3 +2,5 @@ config.local.json
 state/
 __pycache__/
 *.pyc
+voices/
+.venv/
