@@ -6,6 +6,24 @@ versioning (pre-release, personal-use project).
 ## 2026-09-08
 
 ### Fixed
+- **Real production outage, caught same-day**: the text brief's
+  `com.morningbrief.scheduled` launchd job still pointed at a bare
+  system `python3` (`/usr/local/bin/python3`), a leftover from when
+  the text-only pipeline had zero third-party dependencies. The
+  calendar feature broke that assumption (`brief.py` now imports
+  `calendar_events.py`, which needs `pyobjc-framework-EventKit`, only
+  installed in this project's own `.venv`) but the live plist was
+  never updated to match — unlike the voice job's plist, which already
+  used `.venv/bin/python3` correctly. Today's real scheduled 16:30
+  send crashed with `ModuleNotFoundError` and was silently missed
+  (launchd doesn't retry or alert on a crashed job, it just logs and
+  waits for the next scheduled time — caught by chance while answering
+  a question about tomorrow's schedule, not by any alerting). Fixed by
+  regenerating the live plist from the template with the correct
+  interpreter, reloading it, and verifying a real kickstarted run
+  completes cleanly. `launchd/com.morningbrief.scheduled.plist.template`
+  updated with an explicit warning so a future re-registration doesn't
+  regress the same way.
 - A manual afternoon test run of the voice pipeline (verifying the new
   calendar feature) surfaced that `voice_script.py`'s prompt always
   opened with "Good morning" regardless of actual send time, since it

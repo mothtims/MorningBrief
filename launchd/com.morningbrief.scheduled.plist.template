@@ -7,6 +7,18 @@
   __PYTHON3__ with an absolute Python 3.11+ interpreter path, and
   __HOME__ per the comment, first. See ../README.md.
 
+  IMPORTANT — __PYTHON3__ must be __PROJECT_DIR__/.venv/bin/python3,
+  not a bare system python3. That used to be safe (the text-only
+  pipeline had zero third-party dependencies), but brief.py now
+  imports calendar_events.py, which needs pyobjc-framework-EventKit -
+  only present in this project's uv-managed venv. Learned the hard way
+  2026-09-08: the live plist still pointed at a system python3 after
+  the calendar feature shipped, and the first scheduled run after that
+  (16:30) crashed with ModuleNotFoundError, silently missing that
+  send - launchd doesn't retry or alert on a crashed job, it just logs
+  to StandardErrorPath and waits for the next scheduled time. Same
+  interpreter requirement as com.morningbrief.voice.scheduled.plist.
+
   This is a periodic task, not a persistent daemon — no RunAtLoad, no
   KeepAlive. It fires at the times in StartCalendarInterval, runs
   briefly, and exits. launchd's minimal PATH gotcha applies here too
