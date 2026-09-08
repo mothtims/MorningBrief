@@ -17,25 +17,23 @@ unattended via macOS `launchd` on the user's own machine.
 
 - **Text brief**: live, running daily via the registered launchd job
   (`launchd/com.morningbrief.scheduled.plist`).
-- **Voice brief (v1)**: built and verified working end-to-end (real
-  Telegram voice note delivered), running **alongside** the text
-  brief, not replacing it. Pipeline: gather data → Claude API
+- **Voice brief (v1)**: live and scheduled, running **alongside** the
+  text brief, not replacing it. `com.morningbrief.voice.scheduled` is
+  registered in `launchd` (weekday mornings, 07:00 — same time as the
+  text job's first send). Pipeline: gather data → Claude API
   (`claude-opus-4-8`) writes a ~140-170 word spoken-style script →
   Piper TTS synthesizes it locally → ffmpeg converts to Opus/OGG →
-  delivered via Telegram's `sendVoice`. Any stage failure falls back
-  silently to the existing text delivery (never silence).
+  delivered via Telegram's `sendVoice`. Any stage failure falls back to
+  the existing text delivery, now with a short visible note naming
+  which stage failed (e.g. "Voice brief failed today: TTS stage.")
+  rather than degrading silently.
 - **Default voice**: `en_GB-alba-medium`, locked in 2026-09-08 after an
   A/B listen against three other Piper voices sent as labelled
   Telegram voice notes.
-- **The voice launchd job is written but not yet registered** —
-  `launchd/com.morningbrief.voice.scheduled.plist.template` exists,
-  awaiting explicit go-ahead before being copied into
-  `~/Library/LaunchAgents/` and loaded.
 - **v2 (not started)**: Cloudflare R2 hosting + iOS Shortcuts pull +
   optional podcast RSS feed, so the brief is available outside
   Telegram too.
-- Nothing in the voice-edition work is committed yet — it's all
-  reviewed, tested working-tree state, pending a commit pass.
+- All voice-edition v1 work is committed and pushed.
 
 ## Why things are the way they are
 
@@ -79,6 +77,3 @@ unattended via macOS `launchd` on the user's own machine.
 - Kokoro TTS's actual performance on this specific Intel CPU is
   genuinely unverified — don't assume it would be faster or better
   without testing.
-- The voice launchd job isn't registered yet, so voice briefs currently
-  only run when triggered manually (`uv run python3
-  scheduled_send_voice.py`), not on the daily schedule.
