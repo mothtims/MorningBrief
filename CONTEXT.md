@@ -2,16 +2,18 @@
 
 *Last updated: 2026-09-08 — keep this current as things change. This is a
 living snapshot, not history — full history lives in `CHANGELOG.md`, full
-reasoning behind decisions in `VOICE_PROPOSAL.md` (voice edition) and the
-inline comments/docstrings each module carries.*
+reasoning behind decisions in `DECISIONS.md` (project-local, from
+ADR-0001 on), `VOICE_PROPOSAL.md`/`CALENDAR_PROPOSAL.md` (design
+proposals), and the inline comments/docstrings each module carries.*
 
 ## What this is
 
-MorningBrief is a personal daily briefing pipeline: it gathers train
-status, weather, and UK politics headlines each morning, and delivers
-them to one person over Telegram — as text (live since launch) and, as
-of the voice edition, also as a short spoken audio briefing. It runs
-unattended via macOS `launchd` on the user's own machine.
+MorningBrief is a personal daily briefing pipeline: it gathers today's
+calendar, train status, weather, and UK politics headlines each
+morning, and delivers them to one person over Telegram — as text (live
+since launch) and, as of the voice edition, also as a short spoken
+audio briefing. It runs unattended via macOS `launchd` on the user's
+own machine.
 
 ## Current state
 
@@ -30,10 +32,19 @@ unattended via macOS `launchd` on the user's own machine.
 - **Default voice**: `en_GB-alba-medium`, locked in 2026-09-08 after an
   A/B listen against three other Piper voices sent as labelled
   Telegram voice notes.
+- **Calendar awareness**: live, in both text and voice briefs. Reads
+  today's events from macOS Calendar.app (`Home` and
+  `thomasandrewfaber@gmail.com` calendars only, via an explicit
+  allowlist in `config.local.json`) using `EventKit`
+  (`pyobjc-framework-EventKit`) — local read only, no Google API
+  integration. Same degrade-independently contract as
+  weather/trains/politics: a read failure shows a visible "Calendar
+  unavailable" line rather than going silent or blocking the rest of
+  the brief.
 - **v2 (not started)**: Cloudflare R2 hosting + iOS Shortcuts pull +
   optional podcast RSS feed, so the brief is available outside
   Telegram too.
-- All voice-edition v1 work is committed and pushed.
+- All work described above is committed and pushed.
 
 ## Why things are the way they are
 
@@ -67,6 +78,18 @@ unattended via macOS `launchd` on the user's own machine.
   phrasing plus an explicit "140-170 words" anchor — earlier prompt
   versions produced tone that was right but scripts too long for a
   60-90s briefing.
+- **Local EventKit over icalBuddy or Google Calendar API**: `icalBuddy`
+  was rejected as unmaintained with documented TCC issues on Ventura+;
+  the Google API was rejected because Calendar.app already syncs that
+  account locally, so a local read covers it (and any future source
+  added through Calendar.app) without adding cloud auth. See
+  `DECISIONS.md` ADR-0001.
+- **Calendar allowlist excludes two calendars deliberately**: a live
+  scan during investigation found `sarahfoxfaber@gmail.com` synced
+  under two different calendar sources, producing verbatim duplicate
+  events. Neither is allowlisted, sidestepping the issue; a
+  `(title, start, end)` dedupe in `calendar_events.py` is a safety net
+  regardless.
 
 ## Known issues / caveats
 
@@ -77,3 +100,12 @@ unattended via macOS `launchd` on the user's own machine.
 - Kokoro TTS's actual performance on this specific Intel CPU is
   genuinely unverified — don't assume it would be faster or better
   without testing.
+- Calendar TCC access is bound to the specific interpreter binary path
+  (`~/.local/share/uv/python/cpython-3.13.14-.../python3.13`, same one
+  the `onnxruntime` pin depends on) — a future Python version bump
+  would need the Calendar grant re-confirmed, not just re-tested for
+  functionality.
+- Multi-day events spanning today were designed for defensively but
+  never verified against a real one (none existed on the allowlisted
+  calendars during testing) — worth a manual check whenever one
+  naturally occurs.

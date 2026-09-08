@@ -41,6 +41,35 @@ versioning (pre-release, personal-use project).
   fails, the plain brief still goes out unmodified — the rule that
   voice problems must never block or delay the text brief still holds.
 
+### Added — Calendar awareness
+- Added `calendar_events.py`: reads today's timed and all-day events
+  from an explicit allowlist of macOS Calendar.app calendars
+  (`Home`, `thomasandrewfaber@gmail.com`) via `EventKit`
+  (`pyobjc-framework-EventKit`), local read only — no Google Calendar
+  API integration, no cloud auth. See `DECISIONS.md` ADR-0001 and
+  `CALENDAR_PROPOSAL.md` for the investigation behind the choice
+  (`icalBuddy` rejected: unmaintained, documented TCC issues on
+  Ventura+) and the TCC/permissions verification (confirmed working
+  under a real headless `launchd` LaunchAgent using this project's
+  actual interpreter, and to survive job re-registration).
+- Follows the same degrade-independently contract as
+  `weather.py`/`trains.py`: a calendar read failure returns a visible
+  "Calendar unavailable right now (...)" line rather than raising or
+  going silent, and can't block the rest of the brief.
+- Wired into `brief.py` (`BriefData.calendar_line`, shown first in the
+  text brief) and `voice_script.py`'s prompt (calendar mentioned
+  naturally alongside train/weather/politics, with an explicit
+  brevity nudge added to the prompt now that there are four data
+  points sharing the same ~140-170 word budget).
+- A live 21-day scan during investigation found the same events
+  duplicated across two differently-named calendar sources syncing
+  the same underlying Google calendar — `calendar_events.py` dedupes
+  by `(title, start, end)` as a safety net regardless of which
+  calendars end up allowlisted.
+- Added `MorningBrief/DECISIONS.md` — a project-local decision log,
+  its own equivalent of Bizkit's `DECISIONS.md`, starting with
+  ADR-0001 for this feature.
+
 ## 2026-08-04
 
 ### Checked
