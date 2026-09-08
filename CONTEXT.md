@@ -25,7 +25,10 @@ own machine.
   registered in `launchd` on the same weekday twice-daily schedule as
   the text job (07:00/16:30) — originally morning-only, changed
   2026-09-08 since there was no real reason for voice to run less
-  often than text. Pipeline: gather data → Claude API
+  often than text. Both jobs kickstarted for real on 2026-09-08 to
+  confirm the new schedule: exactly one text message and one voice
+  note arrived in Telegram, no duplicates, no errors — verified live,
+  not just plist-linted. Pipeline: gather data → Claude API
   (`claude-opus-4-8`) writes a ~140-170 word spoken-style script →
   Piper TTS synthesizes it locally → ffmpeg converts to Opus/OGG →
   delivered via Telegram's `sendVoice`. Any stage failure falls back to
