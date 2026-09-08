@@ -3,6 +3,44 @@
 All notable changes to this project. Entries are dated; no semantic
 versioning (pre-release, personal-use project).
 
+## 2026-09-08
+
+### Added — Voice edition v1
+- Added a spoken audio briefing delivered as a Telegram voice note,
+  alongside the existing text brief (not instead of it — an
+  intentional degradation contract, see `VOICE_PROPOSAL.md` section 4
+  and `CONTEXT.md`). Pipeline: `gather_brief_data()` → Claude API
+  (`claude-opus-4-8`, direct SDK call, not the `claude -p` CLI pattern
+  `politics.py` uses) writes a short warm/conversational spoken-style
+  script → Piper TTS synthesizes it locally → `ffmpeg` converts to
+  Opus/OGG → delivered via Bizkit's new `send_voice.py` primitive
+  (`services/telegram-bridge/`, see Bizkit `DECISIONS.md` ADR-0012/13
+  area).
+- Default voice locked to `en_GB-alba-medium` after an A/B listen
+  against three other Piper voices sent as labelled Telegram voice
+  notes.
+- Pinned `onnxruntime==1.23.0` and Python 3.13 (`.python-version`):
+  this machine is an Intel Mac (x86_64, macOS 13.7.8) and onnxruntime
+  dropped x86_64 macOS wheels after 1.23.0; 1.25.0+ needs macOS 14+
+  and arm64. Both pins are load-bearing.
+- Registered `launchd/com.morningbrief.voice.scheduled.plist`: weekday
+  mornings at 07:00, alongside the text job's own 07:00/16:30 schedule
+  — a separate launchd job so a voice-pipeline failure can never affect
+  the text brief's own reliability.
+- Added `CONTEXT.md`, a living half-page snapshot of current state
+  (distinct from this changelog) — first instance of a new
+  Bizkit-wide convention, see Bizkit `DECISIONS.md` ADR-0013.
+
+### Added — Fallback visibility
+- Previously, any voice-stage failure degraded silently to the plain
+  text brief with no indication anything had gone wrong. Now
+  `scheduled_send_voice.py`'s text fallback appends one short line —
+  e.g. "Voice brief failed today: TTS stage." — naming which stage
+  failed (script generation, TTS, audio conversion, or Telegram
+  upload). The note-building is wrapped defensively so that if it ever
+  fails, the plain brief still goes out unmodified — the rule that
+  voice problems must never block or delay the text brief still holds.
+
 ## 2026-08-04
 
 ### Checked
