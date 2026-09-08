@@ -1,9 +1,10 @@
 """
 Scheduled entry point for the voice edition. Separate launchd job from
-scheduled_send.py (weekday mornings only, not the twice-daily text
-schedule) so a voice-pipeline failure can never affect the existing
+scheduled_send.py, running the same weekday twice-daily schedule
+(07:00/16:30) so a voice-pipeline failure can never affect the existing
 text brief's reliability - see VOICE_PROPOSAL.md section 4, "the
-degradation contract".
+degradation contract". (Originally morning-only; changed 2026-09-08 to
+match the text schedule.)
 
 Runs alongside the existing text brief, not instead of it (confirmed
 decision, VOICE_PROPOSAL.md section 8) - if this script falls back to

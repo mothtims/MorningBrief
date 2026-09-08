@@ -16,10 +16,12 @@
   reason - do not substitute a different interpreter here.
 
   Separate launchd job from com.morningbrief.scheduled.plist
-  (deliberately - see VOICE_PROPOSAL.md section 4): weekday mornings
-  only, alongside the existing twice-daily text schedule, not replacing
-  it. A voice-pipeline failure here can never affect the text job's own
-  reliability, since they're independent launchd jobs entirely.
+  (deliberately - see VOICE_PROPOSAL.md section 4), but running the
+  same weekday twice-daily schedule (07:00/16:30) as of 2026-09-08 -
+  originally morning-only, changed because there was never a real
+  reason for voice to run less often than text. A voice-pipeline
+  failure here can never affect the text job's own reliability, since
+  they're independent launchd jobs entirely.
 -->
 <plist version="1.0">
 <dict>
@@ -44,6 +46,11 @@
         <dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>7</integer><key>Minute</key><integer>0</integer></dict>
         <dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>7</integer><key>Minute</key><integer>0</integer></dict>
         <dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>7</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>16</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>16</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>16</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>16</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>16</integer><key>Minute</key><integer>30</integer></dict>
     </array>
     <key>StandardOutPath</key>
     <string>__PROJECT_DIR__/state/scheduled_voice.out.log</string>

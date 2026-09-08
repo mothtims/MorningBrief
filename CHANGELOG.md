@@ -5,6 +5,15 @@ versioning (pre-release, personal-use project).
 
 ## 2026-09-08
 
+### Changed
+- Voice brief schedule expanded from weekday mornings only to the same
+  weekday twice-daily schedule as the text brief (07:00/16:30).
+  Originally morning-only by design (see `VOICE_PROPOSAL.md` section
+  4), reconsidered same-day — there was no real reason for voice to
+  run less often than text. `launchd/com.morningbrief.voice.scheduled.plist.template`
+  updated with the additional `StartCalendarInterval` entries; live
+  plist regenerated and reloaded.
+
 ### Fixed
 - **Real production outage, caught same-day**: the text brief's
   `com.morningbrief.scheduled` launchd job still pointed at a bare

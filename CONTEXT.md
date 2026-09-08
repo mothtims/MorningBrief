@@ -17,12 +17,15 @@ own machine.
 
 ## Current state
 
-- **Text brief**: live, running daily via the registered launchd job
+- **Text brief**: live, running weekday mornings and afternoons
+  (07:00/16:30) via the registered launchd job
   (`launchd/com.morningbrief.scheduled.plist`).
 - **Voice brief (v1)**: live and scheduled, running **alongside** the
   text brief, not replacing it. `com.morningbrief.voice.scheduled` is
-  registered in `launchd` (weekday mornings, 07:00 — same time as the
-  text job's first send). Pipeline: gather data → Claude API
+  registered in `launchd` on the same weekday twice-daily schedule as
+  the text job (07:00/16:30) — originally morning-only, changed
+  2026-09-08 since there was no real reason for voice to run less
+  often than text. Pipeline: gather data → Claude API
   (`claude-opus-4-8`) writes a ~140-170 word spoken-style script →
   Piper TTS synthesizes it locally → ffmpeg converts to Opus/OGG →
   delivered via Telegram's `sendVoice`. Any stage failure falls back to
