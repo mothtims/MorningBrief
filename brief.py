@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+from calendar_events import summarize_calendar
 from politics import summarize_politics
 from trains import summarize_leg
 from weather import summarize_weather
@@ -32,6 +33,7 @@ class BriefData:
     train_line: str
     weather_line: str
     politics_line: str
+    calendar_line: str
 
 
 def load_config() -> dict:
@@ -53,11 +55,13 @@ def gather_brief_data() -> BriefData:
         train_line=summarize_leg(leg["from"], leg["to"], leg["departs"]),
         weather_line=summarize_weather(config["home_postcode"]),
         politics_line=summarize_politics(),
+        calendar_line=summarize_calendar(config.get("calendar_allowlist", [])),
     )
 
 
 def format_text(data: BriefData) -> str:
     return (
+        f"📅 {data.calendar_line}\n\n"
         f"🚆 {data.train_line}\n\n"
         f"🌤 {data.weather_line}\n\n"
         f"📰 {data.politics_line}"

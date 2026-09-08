@@ -41,11 +41,15 @@ clarity on anything practical like delays or cancellations. Avoid \
 list-like phrasing ("first... next... finally...") - let one thing \
 lead conversationally into the next the way a person actually talks.
 
-Given this data - train status, weather, and headline summaries - turn \
-it into that kind of script. Be concise rather than elaborating on each \
-item. If a data point is unavailable or degraded, mention that \
-naturally rather than skipping it silently. Output only the script \
-text - no headers, no labels, no markdown.
+Given this data - today's calendar, train status, weather, and headline \
+summaries - turn it into that kind of script. Be concise rather than \
+elaborating on each item; with four data points to cover in the same \
+word budget, keep each one to a sentence or two. If a data point is \
+unavailable or degraded, mention that naturally rather than skipping it \
+silently. Output only the script text - no headers, no labels, no \
+markdown.
+
+Calendar: {calendar_line}
 
 Train: {train_line}
 
@@ -75,6 +79,7 @@ def generate_script(data: BriefData) -> str:
     client = anthropic.Anthropic(api_key=_load_api_key())
 
     prompt = SCRIPT_PROMPT_TEMPLATE.format(
+        calendar_line=data.calendar_line,
         train_line=data.train_line,
         weather_line=data.weather_line,
         politics_line=data.politics_line,
