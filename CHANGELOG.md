@@ -5,6 +5,46 @@ versioning (pre-release, personal-use project).
 
 ## 2026-09-08
 
+### Added — TV watchlist and tech news rotation
+- Added `tv_watchlist.py`: checks TVmaze (free, no key) for episodes of
+  13 watched shows airing today or in the next ~48h. Silent by design
+  on most days — the section costs nothing in either text or voice
+  when nothing's airing, per a three-way contract different from the
+  other fetchers (silence / a short line / a visible failure note,
+  never raising). Show names resolved to TVmaze IDs via real API
+  searches, with two flagged for confirmation (Peacemaker had a
+  same-title anime near-tie in search score, resolved by content
+  check; Demon Slayer stays in config despite showing "Ended," since
+  its current story is theatrical-only and TVmaze tracks TV broadcast
+  only). See `TV_TECH_PROPOSAL.md` for the full investigation.
+- Added `tech_news.py`: mirrors `politics.py` exactly (Ars Technica +
+  BBC Technology RSS, summarized via the same `claude -p` no-tool-access
+  pattern). The Verge was evaluated and skipped — it's an Atom feed,
+  not RSS, and wasn't worth a second parser branch for one source.
+- **Section rotation**: the 07:00 send carries politics, 16:30 carries
+  tech news instead — a genuine swap, not an addition. `brief.py` gained
+  `is_morning_send()`, reusing the same hour check that already picked
+  the commute leg, rather than a second independent time check (see
+  `DECISIONS.md` ADR-0002). `BriefData.politics_line` renamed to
+  `news_line` (paired with a new `news_label` field), since a field
+  named for one topic holding another's content half the time would be
+  misleading.
+- `format_text()` and `voice_script.py`'s prompt data block both
+  changed from fixed templates to conditional section assembly, so the
+  TV line can be omitted cleanly when empty — the same mechanism any
+  future optional section can reuse.
+- `voice_script.py`'s prompt tone is unchanged; the data-supplying
+  section was generalized (no longer hardcodes "headline summaries")
+  and gained an explicit trim-priority instruction (news first, then
+  TV, calendar/train never cut) now that up to five data points share
+  the same ~140-170 word budget.
+- Verified end-to-end for real: `tv_watchlist.py`/`tech_news.py` run
+  standalone, `brief.py` picks the correct rotation for both explicit
+  hours and the real current time, and a full `scheduled_send.py` +
+  `scheduled_send_voice.py` run delivered both a text and voice brief
+  with the tech section and (correctly) no TV line, since nothing was
+  airing in the watchlist at test time.
+
 ### Changed
 - Voice brief schedule expanded from weekday mornings only to the same
   weekday twice-daily schedule as the text brief (07:00/16:30).

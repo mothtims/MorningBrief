@@ -3,17 +3,19 @@
 *Last updated: 2026-09-08 — keep this current as things change. This is a
 living snapshot, not history — full history lives in `CHANGELOG.md`, full
 reasoning behind decisions in `DECISIONS.md` (project-local, from
-ADR-0001 on), `VOICE_PROPOSAL.md`/`CALENDAR_PROPOSAL.md` (design
-proposals), and the inline comments/docstrings each module carries.*
+ADR-0001 on), `VOICE_PROPOSAL.md`/`CALENDAR_PROPOSAL.md`/`TV_TECH_PROPOSAL.md`
+(design proposals), and the inline comments/docstrings each module
+carries.*
 
 ## What this is
 
 MorningBrief is a personal daily briefing pipeline: it gathers today's
-calendar, train status, weather, and UK politics headlines each
-morning, and delivers them to one person over Telegram — as text (live
-since launch) and, as of the voice edition, also as a short spoken
-audio briefing. It runs unattended via macOS `launchd` on the user's
-own machine.
+calendar, train status, weather, any upcoming episodes from a TV
+watchlist, and news (politics in the morning, tech in the afternoon —
+see rotation below), and delivers them to one person over Telegram —
+as text (live since launch) and, as of the voice edition, also as a
+short spoken audio briefing. It runs unattended via macOS `launchd` on
+the user's own machine.
 
 ## Current state
 
@@ -47,6 +49,17 @@ own machine.
   weather/trains/politics: a read failure shows a visible "Calendar
   unavailable" line rather than going silent or blocking the rest of
   the brief.
+- **TV watchlist**: live, in both text and voice briefs. Checks TVmaze
+  (free, no key) for episodes of 13 watched shows airing today or in
+  the next ~48h. Silent by design most days — no line appears in
+  either brief when nothing's airing; a TVmaze outage shows a visible
+  one-line failure instead. Watchlist (names + resolved TVmaze IDs) is
+  in `config.local.json`.
+- **News section rotation**: the 07:00 send carries politics, 16:30
+  carries tech news (Ars Technica + BBC Technology) instead — a swap,
+  not an addition. Reuses the same hour check that already picks the
+  commute leg (`is_morning_send()`), not a second independent switch.
+  See `DECISIONS.md` ADR-0002.
 - **v2 (not started)**: Cloudflare R2 hosting + iOS Shortcuts pull +
   optional podcast RSS feed, so the brief is available outside
   Telegram too.
@@ -96,6 +109,15 @@ own machine.
   events. Neither is allowlisted, sidestepping the issue; a
   `(title, start, end)` dedupe in `calendar_events.py` is a safety net
   regardless.
+- **TV watchlist window uses `airstamp`, not `airdate`**: TVmaze tracks
+  anime by original Japanese broadcast time (JST); a late-night JST
+  slot can fall on the previous calendar day in UK time. Using the
+  absolute UTC instant rather than the date string avoids an
+  off-by-one-day error at that boundary. See `TV_TECH_PROPOSAL.md`.
+- **Ars Technica + BBC Technology for tech news, not The Verge**: both
+  are proper RSS 2.0 and drop into `politics.py`'s existing parser with
+  zero new code. The Verge is Atom, not RSS — would need a second
+  parser branch for one feed, not worth it unless wanted later.
 
 ## Known issues / caveats
 
@@ -115,3 +137,13 @@ own machine.
   never verified against a real one (none existed on the allowlisted
   calendars during testing) — worth a manual check whenever one
   naturally occurs.
+- The TV watchlist's "Demon Slayer" entry (TVmaze id=41469) will show
+  as permanently dormant (`status: Ended`) and never fire — its current
+  story is being told via theatrical films, which TVmaze doesn't track
+  (TV broadcast only). Kept in config anyway per the "dormant costs
+  nothing" rule; not a bug if it stays silent forever.
+- The watchlist wasn't tested against a real "something's airing"
+  case end-to-end (nothing was airing in the ~48h window at
+  implementation time) — the section-inclusion logic was verified with
+  simulated data instead. Worth a real check whenever a watched show's
+  next episode is imminent.
