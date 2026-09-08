@@ -41,11 +41,20 @@ SEND_MESSAGE_SCRIPT = "/Users/mothtims/Projects/Bizkit/services/telegram-bridge/
 SEND_VOICE_SCRIPT = "/Users/mothtims/Projects/Bizkit/services/telegram-bridge/send_voice.py"
 
 
-def send_text_fallback(text: str, reason: str) -> None:
-    log.warning("Falling back to text brief (%s)", reason)
+def send_text_fallback(text: str, stage: str) -> None:
+    log.warning("Falling back to text brief (%s failed)", stage)
+
+    # Best-effort only: if this note can't be built for any reason, the
+    # plain brief still has to go out - never let visibility logic block
+    # or delay the one thing this script must not fail to do.
+    try:
+        text_to_send = f"{text}\n\nVoice brief failed today: {stage} stage."
+    except Exception:
+        text_to_send = text
+
     result = subprocess.run(
         [sys.executable, SEND_MESSAGE_SCRIPT],
-        input=text,
+        input=text_to_send,
         capture_output=True,
         text=True,
         timeout=30,
@@ -77,7 +86,7 @@ def main() -> None:
             script = generate_script(data)
         except Exception as exc:
             log.error("Script generation failed: %s", exc, exc_info=True)
-            send_text_fallback(text, "script generation failed")
+            send_text_fallback(text, "script generation")
             return
 
         wav_path = tmp_dir / "brief.wav"
@@ -85,7 +94,7 @@ def main() -> None:
             synthesize_to_wav(script, wav_path)
         except Exception as exc:
             log.error("TTS failed: %s", exc, exc_info=True)
-            send_text_fallback(text, "TTS failed")
+            send_text_fallback(text, "TTS")
             return
 
         ogg_path = tmp_dir / "brief.ogg"
@@ -93,14 +102,14 @@ def main() -> None:
             wav_to_opus(wav_path, ogg_path)
         except Exception as exc:
             log.error("Audio conversion failed: %s", exc, exc_info=True)
-            send_text_fallback(text, "audio conversion failed")
+            send_text_fallback(text, "audio conversion")
             return
 
         try:
             send_voice_note(ogg_path)
         except Exception as exc:
             log.error("Telegram voice upload failed: %s", exc, exc_info=True)
-            send_text_fallback(text, "Telegram voice upload failed")
+            send_text_fallback(text, "Telegram upload")
             return
 
     log.info("Voice brief delivered successfully")
