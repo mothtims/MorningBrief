@@ -3,5 +3,6 @@
   "evening_leg": { "from": "CST", "to": "WHI", "departs": "17:11" },
   "home_postcode": "AA1 1AA",
   "telegram_trigger_phrase": "/brief",
-  "calendar_allowlist": []
+  "calendar_allowlist": [],
+  "tv_watchlist": []
 }

@@ -61,3 +61,38 @@ discovered calendars (`Birthdays`, `Work`, both holiday sources, and
 both `sarahfoxfaber@gmail.com` entries) are deliberately excluded, partly
 to avoid noise and partly because two of the excluded calendars were
 found to duplicate each other's events verbatim.
+
+## ADR-0002: Section rotation reuses the existing leg-selection time check, not a parallel switch
+
+**Context:** The 16:30 send needs to carry a technology section instead
+of politics, while the 07:00 send keeps politics — a genuine content
+swap, not an additional section. `brief.py` already computes
+`now_hour < LEG_SWITCH_HOUR` once, to pick which commute leg
+(`morning_leg`/`evening_leg`) to report on. Adding a second,
+independently-computed time check for the news-section choice would
+create two sources of truth for "is this a morning or afternoon send,"
+with the attendant risk of them disagreeing (e.g. one gets a threshold
+tweak later and the other doesn't).
+
+**Decision:** Factor the existing hour check into a named
+`is_morning_send()` function, computed once per `gather_brief_data()`
+call, and use that single boolean for both `pick_leg()` and the
+news-section choice (`summarize_politics()` vs `summarize_tech()`).
+`BriefData.politics_line` is renamed to `BriefData.news_line` (with a
+paired `news_label` field), since a field named for one topic holding
+another topic's content half the time would be misleading.
+
+**Consequences:** `LEG_SWITCH_HOUR` (13:00) now implicitly governs three
+things — leg selection, train direction, and news topic — from one
+place. Any future section that should also vary by time of day (rather
+than being a new independent fetcher like TV) should extend this same
+boolean rather than adding another time check. The rename touches
+`brief.py` and `voice_script.py`'s prompt-formatting call; no other
+files reference the old field name.
+
+Same rotation introduced the TV watchlist as an always-present but
+often-silent section: `BriefData.tv_line` is `""` on most days
+(nothing airing), and both `format_text()` and `voice_script.py`'s
+data-block assembly omit the section entirely when empty, rather than
+rendering an empty placeholder. See `TV_TECH_PROPOSAL.md` for the
+TVmaze investigation and the resolved watchlist (`config.local.json`).

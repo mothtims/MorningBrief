@@ -55,21 +55,16 @@ clarity on anything practical like delays or cancellations. Avoid \
 list-like phrasing ("first... next... finally...") - let one thing \
 lead conversationally into the next the way a person actually talks.
 
-Given this data - today's calendar, train status, weather, and headline \
-summaries - turn it into that kind of script. Be concise rather than \
-elaborating on each item; with four data points to cover in the same \
-word budget, keep each one to a sentence or two. If a data point is \
-unavailable or degraded, mention that naturally rather than skipping it \
-silently. Output only the script text - no headers, no labels, no \
-markdown.
+Given the data below - today's calendar, train status, weather, and \
+news, plus TV when there's an upcoming episode - turn it into that \
+kind of script. Be concise rather than elaborating on each item. If \
+you need to trim to stay in budget, shorten or drop the news section \
+first, then TV if present - calendar and train details should never \
+be cut. If a data point is unavailable or degraded, mention that \
+naturally rather than skipping it silently. Output only the script \
+text - no headers, no labels, no markdown.
 
-Calendar: {calendar_line}
-
-Train: {train_line}
-
-Weather: {weather_line}
-
-Politics headlines: {politics_line}
+{data_block}
 """
 
 
@@ -92,12 +87,18 @@ def generate_script(data: BriefData) -> str:
     fallback-to-text degradation contract, not this module."""
     client = anthropic.Anthropic(api_key=_load_api_key())
 
+    data_lines = [
+        f"Calendar: {data.calendar_line}",
+        f"Train: {data.train_line}",
+        f"Weather: {data.weather_line}",
+    ]
+    if data.tv_line:
+        data_lines.append(f"TV: {data.tv_line}")
+    data_lines.append(f"{data.news_label}: {data.news_line}")
+
     prompt = SCRIPT_PROMPT_TEMPLATE.format(
         time_of_day=_time_of_day_label(),
-        calendar_line=data.calendar_line,
-        train_line=data.train_line,
-        weather_line=data.weather_line,
-        politics_line=data.politics_line,
+        data_block="\n\n".join(data_lines),
     )
 
     response = client.messages.create(
