@@ -54,6 +54,33 @@ versioning (pre-release, personal-use project).
   blocked on the user creating the Cloudflare account/bucket/token/
   Worker (see `R2_DELIVERY_PROPOSAL.md` section 4/5).
 
+### Fixed — pre-deployment review of `cloudflare/brief-worker.js`
+- **Fail-open window, caught before deployment**: `env.BRIEF_ACCESS_TOKEN`
+  defaulting to `""` when unset meant a missing/empty request header
+  would match a missing secret and serve the file with no
+  authentication at all — and the documented setup order (bind the
+  bucket, *then* set the secret) created exactly that window during
+  setup. Fixed to fail closed: if the secret is missing or empty,
+  every request gets the same 404, with no code path that can serve
+  the object without it.
+- Collapsed every non-success response (wrong method, missing/wrong
+  token, missing secret, missing object) to one identical 404 — no
+  more 403 for a bad token or 405 for a bad method, so a probe can't
+  distinguish "wrong token" from "nothing here" from "method not
+  supported."
+- Replaced the hand-rolled XOR comparison loop with
+  `crypto.subtle.timingSafeEqual` over SHA-256 digests of both the
+  provided and expected token — confirmed `timingSafeEqual` is a real
+  (if non-standard) Cloudflare Workers API before using it, not
+  assumed. Hashing both sides to a fixed 32-byte digest first sidesteps
+  `timingSafeEqual`'s equal-length requirement entirely, which is
+  cleaner than Cloudflare's own documented example (a length-mismatch
+  branch that compares a value against itself when lengths differ).
+- `cache-control` tightened to `private, no-store`.
+- Caught via review before this was ever deployed — the R2/Worker/phone
+  verification in section 5 still hasn't happened, so this fix shipped
+  before the fail-open window was ever live.
+
 ## 2026-09-08
 
 ### Added — TV watchlist and tech news rotation
