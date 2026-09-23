@@ -1,11 +1,11 @@
 # Context
 
-*Last updated: 2026-09-08 — keep this current as things change. This is a
+*Last updated: 2026-09-23 — keep this current as things change. This is a
 living snapshot, not history — full history lives in `CHANGELOG.md`, full
 reasoning behind decisions in `DECISIONS.md` (project-local, from
-ADR-0001 on), `VOICE_PROPOSAL.md`/`CALENDAR_PROPOSAL.md`/`TV_TECH_PROPOSAL.md`
-(design proposals), and the inline comments/docstrings each module
-carries.*
+ADR-0001 on), `VOICE_PROPOSAL.md`/`CALENDAR_PROPOSAL.md`/`TV_TECH_PROPOSAL.md`/
+`R2_DELIVERY_PROPOSAL.md` (design proposals), and the inline
+comments/docstrings each module carries.*
 
 ## What this is
 
@@ -64,10 +64,24 @@ the user's own machine.
   cleanly (exit 0, no errors logged), correctly picked the tech
   section for the afternoon/evening send, and the user confirmed both
   messages arrived in Telegram and sounded right.
-- **v2 (not started)**: Cloudflare R2 hosting + iOS Shortcuts pull +
-  optional podcast RSS feed, so the brief is available outside
-  Telegram too.
-- All work described above is committed and pushed.
+- **v2 delivery (R2 mirror): code built, not yet live.** The voice
+  brief's MP3 gets pushed to a private Cloudflare R2 bucket at a
+  stable `latest.mp3` key after every successful Telegram delivery
+  (`voice_storage.py`, hand-rolled SigV4, no new dependency), gated
+  for phone access by a Cloudflare Worker (`cloudflare/brief-worker.js`,
+  deployed separately, not run on this machine) checking a static
+  header token. See `DECISIONS.md` ADR-0003. **Pending**: the user
+  creating the actual Cloudflare account, R2 bucket, API token, and
+  Worker (`R2_DELIVERY_PROPOSAL.md` section 4) — until then,
+  `r2_account_id`/`r2_bucket` are empty in `config.local.json` and the
+  push step skips itself cleanly every run (verified — no errors, no
+  spurious failure notes). Once the user provides the account ID,
+  bucket name, and deployed Worker URL, remaining work is: real push
+  verification, Worker behavior verification, and a real phone fetch
+  over cellular — none of which have happened yet.
+- **Podcast RSS**: still optional/deferred, not started.
+- All work described above is committed and pushed, except the R2
+  mirror's live verification (blocked on external setup, see above).
 
 ## Why things are the way they are
 
@@ -122,6 +136,20 @@ the user's own machine.
   are proper RSS 2.0 and drop into `politics.py`'s existing parser with
   zero new code. The Verge is Atom, not RSS — would need a second
   parser branch for one feed, not worth it unless wanted later.
+- **R2 access via a Worker + header token, not an unguessable URL or
+  presigned URLs**: the phone-side consumer (iOS Shortcuts) can only
+  send a fixed saved URL plus optionally one fixed header, with no
+  dynamic auth. Header chosen specifically over a query-param token
+  because URLs get logged at nearly every HTTP hop by default while
+  headers generally don't — meaningful for content this personal
+  (schedule/movements). See `DECISIONS.md` ADR-0003.
+- **Hand-rolled SigV4 for the R2 push, not `boto3`**: one well-defined
+  PUT operation twice a day doesn't justify `boto3`'s dependency
+  chain — same reasoning Bizkit's `send_voice.py` used for hand-rolled
+  multipart encoding over `requests`. Correctness verified by
+  cross-checking output against `botocore`'s own signer for synthetic
+  requests, not by trusting a manually-recalled test vector (which, in
+  fact, turned out to be misremembered when first tried).
 
 ## Known issues / caveats
 
@@ -151,3 +179,10 @@ the user's own machine.
   implementation time) — the section-inclusion logic was verified with
   simulated data instead. Worth a real check whenever a watched show's
   next episode is imminent.
+- The R2 delivery code (`voice_storage.py`, the Worker) is untested
+  against real Cloudflare infrastructure — the SigV4 signing logic is
+  verified correct in isolation (cross-checked against `botocore`), and
+  the "not configured" skip path is verified live, but an actual PUT
+  to a real bucket, the Worker's live request handling, and a phone
+  fetch have not happened. Don't treat this as done until section 5 of
+  `R2_DELIVERY_PROPOSAL.md` is complete.

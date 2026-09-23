@@ -3,6 +3,57 @@
 All notable changes to this project. Entries are dated; no semantic
 versioning (pre-release, personal-use project).
 
+## 2026-09-23
+
+### Added — v2 delivery: voice brief mirrored to Cloudflare R2
+- Added `voice_storage.py`: pushes the voice brief's MP3 to a private
+  R2 bucket at a stable `latest.mp3` key, overwritten every run, via
+  R2's S3-compatible API. Hand-rolled AWS SigV4 signing via stdlib
+  (`hashlib`/`hmac`/`urllib`) rather than `boto3` — one well-defined
+  HTTP operation doesn't justify a heavy dependency chain, same
+  reasoning as Bizkit's `send_voice.py` hand-rolling multipart
+  encoding. The signer was verified correct by cross-checking its
+  output against `botocore`'s own SigV4 implementation for synthetic
+  requests (exact signature match, two independent test cases) rather
+  than trusting a hand-derived test vector — an earlier attempt to
+  verify against a manually-recalled AWS test vector mismatched, which
+  is exactly why the cross-check against a trusted implementation was
+  worth doing instead of assuming the recollection was right.
+- Added `cloudflare/brief-worker.js`: a Cloudflare Worker (not run on
+  this machine — pasted into the Cloudflare dashboard) that gates read
+  access to the R2 object behind a static token passed as a custom
+  header (`X-Brief-Token`), never a query parameter, since URLs get
+  logged at nearly every HTTP hop by default while headers generally
+  don't. Proxies the object through with `Last-Modified` set from R2's
+  own `.uploaded` timestamp, so a freshness check reflects the real
+  push time. See `DECISIONS.md` ADR-0003 for the full access-mechanism
+  reasoning (Worker + private bucket + header token, rejecting both an
+  unguessable-URL public bucket and presigned URLs).
+- `scheduled_send_voice.py`: the R2 push runs strictly *after* Telegram
+  voice delivery succeeds, wrapped in its own try/except, so it can
+  never block or delay the delivery that actually matters. A push
+  failure sends a small separate supplementary Telegram text message
+  (new `send_text_note()` helper) rather than being woven inline,
+  since by the time it's discovered the main message has already gone
+  out. If R2 isn't configured yet (`r2_account_id`/`r2_bucket` missing
+  from config), the step is skipped cleanly with a log line — no
+  spurious failure notes before setup is complete.
+- `voice_audio_convert.py`'s `wav_to_mp3()`, written during the v1
+  build and unused until now, is wired in as-is — no changes needed.
+- `config.example.json`/`config.local.json` gained `r2_account_id`/
+  `r2_bucket` keys (not secret — the two actual credentials go in
+  Keychain as `morningbrief-r2-access-key-id`/
+  `morningbrief-r2-secret-access-key`, per this project's existing
+  pattern).
+- Verified: real pipeline run with R2 left unconfigured correctly
+  skipped the push step cleanly (exit 0, clear log line, normal voice
+  delivery unaffected); `push_latest_brief()` raises a clean, readable
+  error when Keychain secrets don't exist yet, confirming the failure
+  path is well-formed. **Not yet verified**: an actual push against a
+  real R2 bucket, the Worker's live behavior, or a phone fetch — all
+  blocked on the user creating the Cloudflare account/bucket/token/
+  Worker (see `R2_DELIVERY_PROPOSAL.md` section 4/5).
+
 ## 2026-09-08
 
 ### Added — TV watchlist and tech news rotation
