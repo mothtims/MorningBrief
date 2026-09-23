@@ -20,7 +20,13 @@ scheduled_send.py already uses) rather than failing the whole run:
   - TTS fails                     -> send text brief instead
   - audio conversion fails        -> send text brief instead
   - Telegram voice upload fails   -> send text brief instead
-(No storage/R2 step yet - that's v2, not in this file.)
+
+v2 storage mirror (R2_DELIVERY_PROPOSAL.md, DECISIONS.md ADR-0003):
+runs strictly *after* Telegram delivery succeeds, never before and
+never blocking it. Since the failure is discovered after the main
+message has already gone out, its visibility note can't be prepended
+the way the four fallbacks above do - it's a small separate
+supplementary Telegram message instead (send_text_note()).
 """
 
 from __future__ import annotations
@@ -30,10 +36,11 @@ import sys
 import tempfile
 from pathlib import Path
 
-from brief import format_text, gather_brief_data
+from brief import format_text, gather_brief_data, load_config
 from logutil import get_logger
-from voice_audio_convert import wav_to_opus
+from voice_audio_convert import wav_to_mp3, wav_to_opus
 from voice_script import generate_script
+from voice_storage import push_latest_brief
 from voice_tts import synthesize_to_wav
 
 log = get_logger("scheduled_send_voice")
@@ -76,6 +83,25 @@ def send_voice_note(ogg_path: Path) -> None:
         raise RuntimeError(result.stderr.strip())
 
 
+def send_text_note(note: str) -> None:
+    """Small standalone Telegram text message, for visibility on
+    failures discovered *after* the main delivery already succeeded.
+    Never raises - a broken notification must never break an
+    otherwise-successful run; worst case it just logs."""
+    try:
+        result = subprocess.run(
+            [sys.executable, SEND_MESSAGE_SCRIPT],
+            input=note,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if result.returncode != 0:
+            log.error("Supplementary note failed to send: %s", result.stderr.strip())
+    except Exception as exc:
+        log.error("Supplementary note failed to send: %s", exc, exc_info=True)
+
+
 def main() -> None:
     data = gather_brief_data()
     text = format_text(data)
@@ -113,7 +139,24 @@ def main() -> None:
             send_text_fallback(text, "Telegram upload")
             return
 
-    log.info("Voice brief delivered successfully")
+        log.info("Voice brief delivered successfully")
+
+        # v2 storage mirror - only ever attempted after the line above,
+        # so it can never block or delay the delivery that matters.
+        config = load_config()
+        r2_account_id = config.get("r2_account_id")
+        r2_bucket = config.get("r2_bucket")
+        if not r2_account_id or not r2_bucket:
+            log.info("R2 not configured (r2_account_id/r2_bucket missing) - skipping storage push")
+            return
+
+        mp3_path = tmp_dir / "brief.mp3"
+        try:
+            wav_to_mp3(wav_path, mp3_path)
+            push_latest_brief(mp3_path, r2_account_id, r2_bucket)
+        except Exception as exc:
+            log.error("R2 push failed: %s", exc, exc_info=True)
+            send_text_note(f"R2 upload failed today ({exc}) - voice/text still delivered normally via Telegram.")
 
 
 if __name__ == "__main__":

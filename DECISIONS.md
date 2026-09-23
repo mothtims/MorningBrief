@@ -96,3 +96,47 @@ often-silent section: `BriefData.tv_line` is `""` on most days
 data-block assembly omit the section entirely when empty, rather than
 rendering an empty placeholder. See `TV_TECH_PROPOSAL.md` for the
 TVmaze investigation and the resolved watchlist (`config.local.json`).
+
+## ADR-0003: R2 delivery — Worker-gated static header token, not an unguessable URL or presigned URLs
+
+**Context:** v2 needs the voice brief reachable by an iOS Shortcut's
+`"Get Contents of URL"` action — a consumer limited to a fixed,
+pre-saved URL and optionally one fixed custom header, with no dynamic
+auth support (no OAuth, no per-request signing). The file carries
+personal schedule/movement information, so access control matters.
+Three approaches were evaluated: an unguessable path on a public
+bucket, presigned URLs, and a Cloudflare Worker gating a private
+bucket on a static token.
+
+**Decision:** A Cloudflare Worker in front of a private R2 bucket,
+checking a long random static token passed as a custom HTTP header
+(`X-Brief-Token`), constant-time-compared against a Worker environment
+secret, proxying the R2 object through on match. Header chosen over
+query parameter because URLs are logged by default at nearly every
+HTTP hop (edge/CDN logs, intermediate proxies, browser history) while
+headers generally aren't — meaningful for content this personal. An
+unguessable-path public bucket was rejected because its entire security
+model is "nobody finds this URL," with no revocation short of changing
+the URL (breaking "stable"). Presigned URLs were rejected because they
+expire by design (~7 days with static credentials), conflicting with a
+Shortcut that saves one URL indefinitely.
+
+**Consequences:** This is new external infrastructure beyond this
+machine — a Cloudflare account, an R2 bucket, a deployed Worker.
+Two independent secrets exist and must not be confused: the R2 API
+token (Object Read & Write, scoped to one bucket — R2's token model has
+no true write-only tier) authenticates the Python pipeline's *push* to
+R2, stored in Keychain like every other credential in this project
+(`morningbrief-r2-access-key-id`/`morningbrief-r2-secret-access-key`).
+The Worker's gating token authenticates the phone's *read* from the
+Worker — it lives only in the Worker's own environment
+(`cloudflare/brief-worker.js`) and is embedded in the saved Shortcut;
+it never touches this codebase, Keychain, or any config file. Rotating
+the gating token later is a one-line Worker secret update plus
+re-saving the Shortcut, touching neither R2 nor the Python pipeline.
+`voice_storage.py`'s SigV4 signer is hand-rolled via stdlib
+(`hashlib`/`hmac`/`urllib`), not `boto3` — verified correct by
+cross-checking its output against `botocore`'s own signer for
+synthetic requests (exact signature match across independent test
+cases) rather than trusting a hand-derived test vector. See
+`R2_DELIVERY_PROPOSAL.md` for the full investigation.
