@@ -81,6 +81,25 @@ versioning (pre-release, personal-use project).
   verification in section 5 still hasn't happened, so this fix shipped
   before the fail-open window was ever live.
 
+### Verified — v2 delivery is live, full loop closed
+- Real `scheduled_send_voice.py` run pushed a real brief (657,702
+  bytes) to `morningbrief-brief/latest.mp3`; confirmed independently of
+  the Worker via a signed HEAD request straight to R2's S3 API —
+  correct size, `content-type: audio/mpeg`, `Last-Modified` matching
+  the push time.
+- Worker deployed at `https://rapid-snowflake-a468.bizkitbrewing.workers.dev/`.
+  Fail-closed/uniform-404 behavior confirmed live via `curl`: no token,
+  a wrong token, and a wrong method (POST) all return the identical
+  `404 Not Found` — no 403, no 405, nothing to distinguish one failure
+  reason from another.
+- Positive path (correct token) verified by the user directly, not by
+  Claude — the real `BRIEF_ACCESS_TOKEN` never touches this codebase or
+  conversation, per ADR-0003. Confirmed working via `curl` from the
+  user's own Terminal, then for real from an iPhone over cellular:
+  audio played.
+- All three items in `R2_DELIVERY_PROPOSAL.md` section 5 are now
+  complete. v2 delivery is live, not just built.
+
 ## 2026-09-08
 
 ### Added — TV watchlist and tech news rotation

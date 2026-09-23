@@ -64,24 +64,25 @@ the user's own machine.
   cleanly (exit 0, no errors logged), correctly picked the tech
   section for the afternoon/evening send, and the user confirmed both
   messages arrived in Telegram and sounded right.
-- **v2 delivery (R2 mirror): code built, not yet live.** The voice
-  brief's MP3 gets pushed to a private Cloudflare R2 bucket at a
-  stable `latest.mp3` key after every successful Telegram delivery
-  (`voice_storage.py`, hand-rolled SigV4, no new dependency), gated
-  for phone access by a Cloudflare Worker (`cloudflare/brief-worker.js`,
-  deployed separately, not run on this machine) checking a static
-  header token. See `DECISIONS.md` ADR-0003. **Pending**: the user
-  creating the actual Cloudflare account, R2 bucket, API token, and
-  Worker (`R2_DELIVERY_PROPOSAL.md` section 4) — until then,
-  `r2_account_id`/`r2_bucket` are empty in `config.local.json` and the
-  push step skips itself cleanly every run (verified — no errors, no
-  spurious failure notes). Once the user provides the account ID,
-  bucket name, and deployed Worker URL, remaining work is: real push
-  verification, Worker behavior verification, and a real phone fetch
-  over cellular — none of which have happened yet.
+- **v2 delivery (R2 mirror): live and fully verified.** The voice
+  brief's MP3 is pushed to a private Cloudflare R2 bucket
+  (`morningbrief-brief`) at a stable `latest.mp3` key after every
+  successful Telegram delivery (`voice_storage.py`, hand-rolled SigV4,
+  no new dependency), gated for phone access by a Cloudflare Worker
+  (`cloudflare/brief-worker.js`, deployed at
+  `https://rapid-snowflake-a468.bizkitbrewing.workers.dev/`) checking a
+  static header token. See `DECISIONS.md` ADR-0003. All three
+  verification steps from `R2_DELIVERY_PROPOSAL.md` section 5 are
+  complete: a real push confirmed independently via a signed request
+  straight to R2 (correct size/type/timestamp), the Worker's
+  fail-closed/uniform-404 behavior confirmed live via `curl` (no
+  token/wrong token/wrong method all return an identical 404), and the
+  positive path confirmed by the user directly from an iPhone over
+  cellular — audio played. The real gating token has never touched
+  this codebase or conversation, per ADR-0003's secret-separation
+  design.
 - **Podcast RSS**: still optional/deferred, not started.
-- All work described above is committed and pushed, except the R2
-  mirror's live verification (blocked on external setup, see above).
+- All work described above is committed and pushed.
 
 ## Why things are the way they are
 
@@ -179,10 +180,3 @@ the user's own machine.
   implementation time) — the section-inclusion logic was verified with
   simulated data instead. Worth a real check whenever a watched show's
   next episode is imminent.
-- The R2 delivery code (`voice_storage.py`, the Worker) is untested
-  against real Cloudflare infrastructure — the SigV4 signing logic is
-  verified correct in isolation (cross-checked against `botocore`), and
-  the "not configured" skip path is verified live, but an actual PUT
-  to a real bucket, the Worker's live request handling, and a phone
-  fetch have not happened. Don't treat this as done until section 5 of
-  `R2_DELIVERY_PROPOSAL.md` is complete.
