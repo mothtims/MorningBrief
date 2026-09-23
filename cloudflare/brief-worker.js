@@ -32,9 +32,19 @@
  * The object's real R2 upload time (`.uploaded`) is passed through as
  * Last-Modified, not the time of this request, so a Shortcut checking
  * freshness sees the true push time.
+ *
+ * Freshness is also enforced here, not just exposed via the header:
+ * the Shortcuts "Get Contents of URL" action can't read response
+ * headers, so a stale object (a failed voice run left the previous
+ * brief in place) would otherwise be served as if it were current. If
+ * object.uploaded is older than MAX_AGE_MS, this returns the same
+ * uniform 404 as every other rejection path. See DECISIONS.md
+ * ADR-0004 for the full reasoning behind the 3-hour figure (it's set
+ * by the play windows, not an arbitrary round number).
  */
 
 const OBJECT_KEY = "latest.mp3";
+const MAX_AGE_MS = 3 * 60 * 60 * 1000; // 3 hours
 
 function notFound() {
   return new Response("Not Found", { status: 404 });
@@ -78,6 +88,11 @@ export default {
 
     const object = await env.BRIEF_BUCKET.get(OBJECT_KEY);
     if (!object) {
+      return notFound();
+    }
+
+    const ageMs = Date.now() - object.uploaded.getTime();
+    if (ageMs > MAX_AGE_MS) {
       return notFound();
     }
 

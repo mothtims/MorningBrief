@@ -140,3 +140,35 @@ cross-checking its output against `botocore`'s own signer for
 synthetic requests (exact signature match across independent test
 cases) rather than trusting a hand-derived test vector. See
 `R2_DELIVERY_PROPOSAL.md` for the full investigation.
+
+## ADR-0004: Freshness enforced server-side in the Worker, not left to the Shortcut
+
+**Context:** `latest.mp3` is overwritten on every voice run, but a
+failed run (any of the four fallback stages in `scheduled_send_voice.py`)
+leaves the *previous* brief in place rather than removing it — by
+design, per the degradation contract, the pipeline never blocks or
+deletes on failure. The Worker already passes the object's real
+`Last-Modified` through (ADR-0003), but iOS Shortcuts' `"Get Contents
+of URL"` action has no way to read response headers, so a Shortcut
+built against this Worker has no way to notice a stale object and
+would simply play the last successful brief as if it were current —
+worst case, the previous afternoon's brief played the next morning.
+
+**Decision:** Enforce a maximum object age of 3 hours directly in the
+Worker: if `object.uploaded` is older than `MAX_AGE_MS` at request
+time, return the identical uniform 404 used by every other rejection
+path (ADR-0003) — no distinct status or body, so this failure mode
+isn't distinguishable from a bad token or a missing object either. The
+3-hour figure isn't arbitrary: play windows are 07:10–09:30 and
+16:40–19:00, each closing roughly 2.5 hours after its corresponding
+push, so a genuinely fresh brief always passes and a stale one from
+the *other* send always fails, with headroom either side.
+
+**Consequences:** This is enforcement, not just exposure — freshness
+no longer depends on the client checking anything. If the play windows
+ever change materially, `MAX_AGE_MS` needs revisiting alongside them,
+since it's derived from them, not independent. A voice run failing
+twice in a row (both sends in one day) means no audio is servable at
+all for that whole day rather than a stale fallback — considered and
+accepted: playing hours-old, wrong-context audio silently would be
+worse than the Shortcut/HTTP request simply failing.

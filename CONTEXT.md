@@ -80,7 +80,13 @@ the user's own machine.
   positive path confirmed by the user directly from an iPhone over
   cellular — audio played. The real gating token has never touched
   this codebase or conversation, per ADR-0003's secret-separation
-  design.
+  design. **Freshness is also enforced server-side**: the Worker
+  rejects (uniform 404, same as any other rejection) any object older
+  than 3 hours, since Shortcuts can't read `Last-Modified` itself and
+  would otherwise happily play a stale brief left behind by a failed
+  run. See `DECISIONS.md` ADR-0004. Pending: redeploy (user pastes the
+  updated script into the dashboard) and the user's own post-deploy
+  `curl` check that a >3h-old object now 404s.
 - **Podcast RSS**: still optional/deferred, not started.
 - All work described above is committed and pushed.
 
@@ -151,6 +157,13 @@ the user's own machine.
   cross-checking output against `botocore`'s own signer for synthetic
   requests, not by trusting a manually-recalled test vector (which, in
   fact, turned out to be misremembered when first tried).
+- **3-hour freshness cap in the Worker, not the Shortcut**: iOS
+  Shortcuts' `"Get Contents of URL"` can't read response headers, so
+  `Last-Modified` alone can't stop it playing a stale brief left by a
+  failed run. 3 hours specifically because the play windows
+  (07:10–09:30, 16:40–19:00) each close ~2.5h after their push — fresh
+  briefs always pass, stale ones from the other send never do. See
+  `DECISIONS.md` ADR-0004.
 
 ## Known issues / caveats
 

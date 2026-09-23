@@ -100,6 +100,32 @@ versioning (pre-release, personal-use project).
 - All three items in `R2_DELIVERY_PROPOSAL.md` section 5 are now
   complete. v2 delivery is live, not just built.
 
+### Added — freshness enforcement in `brief-worker.js`
+- The Worker now rejects any object older than 3 hours
+  (`MAX_AGE_MS`), returning the same uniform 404 as every other
+  rejection path — no distinct status or body. Closes a real gap: a
+  failed voice run leaves the previous brief in place rather than
+  removing it (by design, per the degradation contract), and iOS
+  Shortcuts' `"Get Contents of URL"` action can't read the
+  `Last-Modified` header the Worker already exposes, so a stale brief
+  would otherwise play as if it were current — worst case, the
+  morning brief playing at 17:00.
+- 3 hours specifically, not a round number picked for convenience: the
+  user's play windows are 07:10–09:30 and 16:40–19:00, each closing
+  roughly 2.5h after its corresponding push, so a genuinely fresh
+  brief always passes and a stale one from the other send always
+  fails, with headroom either side.
+- Everything else in the Worker (fail-closed secret check, uniform
+  404s, `crypto.subtle.timingSafeEqual` token comparison, cache
+  headers) is unchanged.
+- Recorded as `DECISIONS.md` ADR-0004 (a short follow-on to ADR-0003,
+  not an amendment — freshness enforcement is a distinct decision with
+  its own reasoning worth preserving on its own).
+- **Not yet deployed or verified**: the user redeploys by pasting the
+  updated script into the Cloudflare dashboard, then confirms via
+  `curl` (with the real token, which never comes to Claude) that an
+  object older than 3h now 404s.
+
 ## 2026-09-08
 
 ### Added — TV watchlist and tech news rotation
