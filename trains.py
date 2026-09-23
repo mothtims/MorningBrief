@@ -78,8 +78,14 @@ def get_departures(from_crs: str, to_crs: str, time_from_iso: str, window_minute
     return data.get("services", [])
 
 
-def summarize_leg(from_crs: str, to_crs: str, departs_hhmm: str) -> str:
-    """Fetch the service closest to `departs_hhmm` today and describe it in plain text."""
+def summarize_leg(from_crs: str, to_crs: str, departs_hhmm: str, show_platform: bool = True) -> str:
+    """Fetch the service closest to `departs_hhmm` today and describe it in plain text.
+
+    show_platform=False omits platform entirely rather than falling
+    back to "platform not yet announced" - some stations (e.g. this
+    project's Whitstable morning leg) never have platform data this
+    far ahead, so that fallback text is permanent noise, not a
+    genuine degradation worth surfacing."""
     today = datetime.now().strftime("%Y-%m-%d")
     hour, minute = departs_hhmm.split(":")
     time_from = f"{today}T{int(hour)-1:02d}:{minute}:00+01:00"
@@ -110,14 +116,17 @@ def summarize_leg(from_crs: str, to_crs: str, departs_hhmm: str) -> str:
         return f"{operator} {scheduled} {from_crs}→{to_crs}: CANCELLED."
 
     lateness = departure.get("realtimeAdvertisedLateness", 0) or 0
-    platform = service.get("locationMetadata", {}).get("platform", {})
-    platform_str = platform.get("actual") or platform.get("planned")
-    platform_text = f"platform {platform_str}" if platform_str else "platform not yet announced"
-
     if lateness == 0:
         status = "on time"
     else:
         status = f"running {lateness} min late"
+
+    if not show_platform:
+        return f"{operator} {scheduled} {from_crs}→{to_crs}: {status}."
+
+    platform = service.get("locationMetadata", {}).get("platform", {})
+    platform_str = platform.get("actual") or platform.get("planned")
+    platform_text = f"platform {platform_str}" if platform_str else "platform not yet announced"
 
     return f"{operator} {scheduled} {from_crs}→{to_crs}: {status}, {platform_text}."
 

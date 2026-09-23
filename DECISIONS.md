@@ -172,3 +172,44 @@ twice in a row (both sends in one day) means no audio is servable at
 all for that whole day rather than a stale fallback — considered and
 accepted: playing hours-old, wrong-context audio silently would be
 worse than the Shortcut/HTTP request simply failing.
+
+## ADR-0005: Household attribution/implication rules live in config as plain English, not inferred by the model
+
+**Context:** The voice script didn't know who the brief's recipient
+was, so calendar events naming another household member (e.g. a
+partner's own event) got phrased as if they belonged to the listener.
+The fix needs to teach the scripting step whose events are whose, and
+what one person's event implies for the listener's own day (e.g.
+childcare coverage) — without hardcoding household-specific logic into
+`voice_script.py` itself, and without leaving the model to infer
+household structure from context on its own.
+
+**Decision:** A `household` section in `config.local.json` holds the
+listener's name, other household members, and two lists of plain-English
+rules — attribution rules (whose event is whose) and implication rules
+(what one person's event implies for the listener). These are fed
+directly into the voice-script prompt as instructions for the model to
+*apply*, not inferred by the model from calendar data on its own, and
+not encoded as Python logic. `config.example.json` carries a
+placeholder version (generic names, no real ones) since it's committed
+to the repo; `config.local.json`'s household section is real personal
+information and, like the rest of that file, is never committed. The
+text brief (`format_text()`) doesn't get this treatment — it lists
+calendar events verbatim by title with no interpretive phrasing, so
+there's nothing there to misattribute in the first place; only the
+voice script actively rephrases events into natural language.
+
+**Consequences:** Household structure/logistics changes (a new
+implication rule, a family member's name, a schedule pattern) are a
+config edit, not a code change — matches this project's existing
+convention of config-driven behavior over hardcoded logic
+(`calendar_allowlist`, `tv_watchlist`). The model applies the given
+rules rather than inferring logistics from context, which keeps
+behavior predictable and auditable (the rules are readable plain
+English, not opaque prompt engineering), but the rules aren't
+exhaustive — only the load-bearing cases the user actually cares about
+getting right are covered, and genuinely novel situations fall back to
+the model's own (uninstructed) judgment. Verified against three
+real-shaped examples (an event naming the listener, an event naming
+another adult, and an evening event triggering the implication rule)
+before shipping — all three attributed and implied correctly.

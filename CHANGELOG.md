@@ -5,6 +5,39 @@ versioning (pre-release, personal-use project).
 
 ## 2026-09-23
 
+### Added — household awareness and platform suppression
+- **Household awareness**: `voice_script.py` didn't know who the
+  brief's recipient was, so calendar events naming another household
+  member (e.g. a partner's own event) got phrased as belonging to the
+  listener. Added a `household` config section (listener name, other
+  members, and plain-English attribution/implication rules) fed
+  directly into the prompt as instructions the model applies, not
+  infers — see `DECISIONS.md` ADR-0005 for the config-driven-rules
+  reasoning. `config.example.json` carries a placeholder version (no
+  real names); `config.local.json`'s real household data stays local,
+  never committed, same as the rest of that file. `BriefData` gained a
+  `household` field; `format_text()` untouched — the text brief lists
+  calendar events verbatim with no interpretive phrasing, so there was
+  nothing there to misattribute. Tone instructions in the prompt are
+  unchanged. Verified against three real-shaped examples before
+  shipping: an event naming the listener, an event naming another
+  household adult, and an evening event triggering the implication
+  rule — all three attributed and implied correctly, phrasing stayed
+  warm and natural throughout.
+- **Platform suppression**: the morning leg (Whitstable) never has
+  platform data this far ahead, so "platform not yet announced" was
+  permanent, meaningless noise on every single morning brief. Added a
+  per-leg `show_platform` flag in config (`false` for the morning leg,
+  `true` for the evening leg, where it's genuinely useful).
+  `trains.py`'s `summarize_leg()` gained a `show_platform` parameter
+  (default `True`, so nothing else changes) — when `False`, platform
+  is omitted entirely rather than falling back to the "not yet
+  announced" text. Verified against both real legs: morning leg now
+  reads "on time." with no platform mention at all; evening leg
+  unchanged, still shows the real platform number.
+
+## 2026-09-08
+
 ### Added — v2 delivery: voice brief mirrored to Cloudflare R2
 - Added `voice_storage.py`: pushes the voice brief's MP3 to a private
   R2 bucket at a stable `latest.mp3` key, overwritten every run, via

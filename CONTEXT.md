@@ -87,6 +87,22 @@ the user's own machine.
   run. See `DECISIONS.md` ADR-0004. Pending: redeploy (user pastes the
   updated script into the dashboard) and the user's own post-deploy
   `curl` check that a >3h-old object now 404s.
+- **Household awareness**: live, in the voice script only. A
+  `household` config section (listener, other members, plain-English
+  attribution/implication rules) is fed into `voice_script.py`'s
+  prompt so calendar events naming another household member (e.g. a
+  partner's own evening class) get attributed correctly and their
+  logistics implications (e.g. the listener covering childcare) get
+  applied — the model applies the given rules rather than inferring
+  household structure on its own. See `DECISIONS.md` ADR-0005. Real
+  household data lives only in `config.local.json`, never committed;
+  `config.example.json` carries a generic placeholder. Text brief
+  untouched — it has no interpretive phrasing to begin with.
+- **Platform suppression**: live. The morning leg (Whitstable) no
+  longer mentions platform at all (`show_platform: false` in config) —
+  previously always showed "platform not yet announced" since that
+  station never has platform data this far ahead. Evening leg
+  unchanged, still shows the real platform.
 - **Podcast RSS**: still optional/deferred, not started.
 - All work described above is committed and pushed.
 
@@ -164,6 +180,18 @@ the user's own machine.
   (07:10–09:30, 16:40–19:00) each close ~2.5h after their push — fresh
   briefs always pass, stale ones from the other send never do. See
   `DECISIONS.md` ADR-0004.
+- **Household rules as config-driven plain English, not inferred**:
+  the model is instructed to *apply* given attribution/implication
+  rules rather than infer household logistics from calendar data on
+  its own — keeps behavior predictable and auditable (readable rules,
+  not opaque prompt engineering), at the cost of not being exhaustive:
+  only the cases the user actually cares about are covered. See
+  `DECISIONS.md` ADR-0005.
+- **Platform suppression is per-leg, not global**: the morning leg
+  (Whitstable) never has platform data this far ahead, so "platform
+  not yet announced" was permanent noise there — but the evening leg
+  (Cannon Street) genuinely benefits from platform info when available,
+  so the flag is per-leg config, not a blanket removal of the feature.
 
 ## Known issues / caveats
 

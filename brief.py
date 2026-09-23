@@ -43,6 +43,7 @@ class BriefData:
     news_line: str
     calendar_line: str
     tv_line: str
+    household: dict
 
 
 def load_config() -> dict:
@@ -66,12 +67,15 @@ def gather_brief_data() -> BriefData:
     leg = pick_leg(config, morning)
 
     return BriefData(
-        train_line=summarize_leg(leg["from"], leg["to"], leg["departs"]),
+        train_line=summarize_leg(
+            leg["from"], leg["to"], leg["departs"], show_platform=leg.get("show_platform", True)
+        ),
         weather_line=summarize_weather(config["home_postcode"]),
         news_label="Politics headlines" if morning else "Tech news",
         news_line=summarize_politics() if morning else summarize_tech(),
         calendar_line=summarize_calendar(config.get("calendar_allowlist", [])),
         tv_line=summarize_tv_watchlist(config.get("tv_watchlist", [])),
+        household=config.get("household", {}),
     )
 
 

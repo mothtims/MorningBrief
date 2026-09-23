@@ -37,6 +37,38 @@ def _time_of_day_label(now: datetime | None = None) -> str:
         return "evening"
 
 
+def _household_context_block(household: dict) -> str:
+    """Returns a complete, self-contained prompt paragraph (with its
+    own leading blank line), or "" if no household is configured -
+    the template embeds this directly with no surrounding whitespace
+    of its own, so this function owns all the spacing. Rules are
+    applied by the model as given, not inferred - see DECISIONS.md
+    ADR-0005 for why this is config-driven plain English rather than
+    Python logic or free inference."""
+    if not household:
+        return ""
+
+    listener = household.get("listener")
+    members = household.get("members", [])
+    attribution_rules = household.get("attribution_rules", [])
+    implication_rules = household.get("implication_rules", [])
+
+    lines = [
+        "Household context - apply these rules whenever a calendar "
+        "event names someone; don't infer household logistics on your own:"
+    ]
+    if listener:
+        lines.append(f'The listener is {listener}, addressed as "you."')
+    if members:
+        lines.append("Other household members: " + "; ".join(members) + ".")
+    for rule in attribution_rules:
+        lines.append(f"- {rule}")
+    for rule in implication_rules:
+        lines.append(f"- {rule}")
+
+    return "\n\n" + "\n".join(lines)
+
+
 SCRIPT_PROMPT_TEMPLATE = """\
 You're writing a spoken daily briefing script for one person, to be \
 read aloud by a text-to-speech voice at a natural, unhurried pace. It's \
@@ -53,7 +85,8 @@ things in third person. Light humour is welcome if something in the \
 data genuinely invites it - never forced, and never at the expense of \
 clarity on anything practical like delays or cancellations. Avoid \
 list-like phrasing ("first... next... finally...") - let one thing \
-lead conversationally into the next the way a person actually talks.
+lead conversationally into the next the way a person actually talks.\
+{household_block}
 
 Given the data below - today's calendar, train status, weather, and \
 news, plus TV when there's an upcoming episode - turn it into that \
@@ -98,6 +131,7 @@ def generate_script(data: BriefData) -> str:
 
     prompt = SCRIPT_PROMPT_TEMPLATE.format(
         time_of_day=_time_of_day_label(),
+        household_block=_household_context_block(data.household),
         data_block="\n\n".join(data_lines),
     )
 
