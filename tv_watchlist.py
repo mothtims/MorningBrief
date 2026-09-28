@@ -78,7 +78,24 @@ def _airs_in_window(ep: dict, offset_hours: float = 0, now: datetime | None = No
     return start_of_today_utc <= air_dt <= window_end
 
 
-def _format_line(name: str, ep: dict, offset_hours: float = 0) -> str:
+def _relative_day_label(air_dt: datetime, now: datetime) -> str:
+    """"Mon 21:00" is ambiguous to whoever reads it next - the
+    voice-script prompt never tells the model today's actual weekday
+    (only a vague morning/afternoon/evening bucket), so a bare weekday
+    abbreviation left it to guess whether "Mon" meant today or some
+    future Monday. It guessed wrong once ("later in the week" for a
+    show airing within the hour) - computed here instead, since this
+    code reliably knows the real current date and the model doesn't
+    need to."""
+    delta_days = (air_dt.astimezone().date() - now.astimezone().date()).days
+    if delta_days <= 0:
+        return "today"
+    if delta_days == 1:
+        return "tomorrow"
+    return air_dt.astimezone().strftime("%A")
+
+
+def _format_line(name: str, ep: dict, offset_hours: float = 0, now: datetime | None = None) -> str:
     bits = [name]
 
     season, number = ep.get("season"), ep.get("number")
@@ -93,7 +110,10 @@ def _format_line(name: str, ep: dict, offset_hours: float = 0) -> str:
 
     air_dt = _effective_airstamp(ep, offset_hours)
     if air_dt is not None:
-        return f"{label} airs {air_dt.astimezone().strftime('%a %H:%M')}"
+        now = now or datetime.now(timezone.utc)
+        day_label = _relative_day_label(air_dt, now)
+        time_str = air_dt.astimezone().strftime("%H:%M")
+        return f"{label} airs {day_label} at {time_str}"
     return f"{label} airs soon"
 
 

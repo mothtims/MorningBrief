@@ -5,6 +5,26 @@ versioning (pre-release, personal-use project).
 
 ## 2026-09-28
 
+### Fixed — TV airtime said "later in the week" for a show airing within the hour
+- Found immediately after the previous fix: Lanterns was now mentioned,
+  but described as airing "later in the week" despite actually airing
+  that same evening. Root cause: `tv_watchlist.py`'s `_format_line()`
+  displayed a bare weekday abbreviation ("Mon 21:00"), and
+  `voice_script.py`'s prompt never tells the model what today's actual
+  weekday is (only a vague morning/afternoon/evening bucket) - so the
+  model had no way to know "Mon" meant *today* and guessed wrong.
+- Fixed by computing the relative-day framing in code instead of
+  leaving it to the model to infer - same principle as the household
+  rules (compute/state what's checkable, don't make the model guess).
+  `_format_line()` now produces "airs today at 21:00" /
+  "airs tomorrow at 21:00" / "airs Friday at 21:00" depending on the
+  actual gap between now and the (offset-adjusted) airtime, using this
+  code's own reliable clock rather than the model's.
+- Verified all three branches (today/tomorrow/further out) against
+  synthetic data, then the real pipeline: Lanterns now reads "Lanterns
+  is back at nine with episode seven" in the generated script, with no
+  day ambiguity.
+
 ### Fixed — voice script sometimes silently omitted TV info that was present in the data
 - Found via a real test delivery: `tv_watchlist.py` correctly found
   Lanterns airing (confirmed in the log), but the delivered voice

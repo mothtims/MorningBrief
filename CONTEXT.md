@@ -209,6 +209,14 @@ the user's own machine.
   guarantee — still LLM-generated, not hard-coded — a validate-and-
   retry mechanism is a possible harder fix if this turns out
   insufficient in practice.
+- **TV airtime is phrased relative to today ("today"/"tomorrow"/
+  weekday), computed in code, not left to the model**: a bare weekday
+  abbreviation ("Mon 21:00") is ambiguous to whoever reads it — the
+  voice-script prompt never tells the model today's actual weekday, so
+  it can't reliably tell "airs Mon" apart from "airs some future
+  Monday." Found for real: a show airing within the hour got announced
+  as "later in the week." `tv_watchlist.py` now computes the relative-
+  day label itself, using this code's own reliable clock.
 - **Ars Technica + BBC Technology for tech news, not The Verge**: both
   are proper RSS 2.0 and drop into `politics.py`'s existing parser with
   zero new code. The Verge is Atom, not RSS — would need a second
