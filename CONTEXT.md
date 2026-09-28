@@ -51,10 +51,18 @@ the user's own machine.
   the brief.
 - **TV watchlist**: live, in both text and voice briefs. Checks TVmaze
   (free, no key) for episodes of 13 watched shows airing today or in
-  the next ~48h. Silent by design most days — no line appears in
-  either brief when nothing's airing; a TVmaze outage shows a visible
-  one-line failure instead. Watchlist (names + resolved TVmaze IDs) is
-  in `config.local.json`.
+  the next ~48h — checking both `nextepisode` and `previousepisode`
+  (fixed 2026-09-28; checking only `nextepisode` silently missed any
+  episode whose tracked airtime had already passed that same day, a
+  real bug caught when Lanterns aired and wasn't mentioned). Silent by
+  design most days — no line appears in either brief when nothing's
+  airing; a TVmaze outage shows a visible one-line failure instead.
+  Watchlist (names + resolved TVmaze IDs) is in `config.local.json`.
+  Five HBO shows (Lanterns, House of the Dragon, A Knight of the Seven
+  Kingdoms, Peacemaker, Game of Thrones) carry a `watch_offset_hours`
+  (currently `19`) since TVmaze only tracks their US broadcast time,
+  which lands hours before UK viewers actually watch — see "Why"
+  below.
 - **News section rotation**: the 07:00 send carries politics, 16:30
   carries tech news (Ars Technica + BBC Technology) instead — a swap,
   not an addition. Reuses the same hour check that already picks the
@@ -173,6 +181,23 @@ the user's own machine.
   slot can fall on the previous calendar day in UK time. Using the
   absolute UTC instant rather than the date string avoids an
   off-by-one-day error at that boundary. See `TV_TECH_PROPOSAL.md`.
+- **TV watchlist checks `previousepisode` too, not just `nextepisode`**:
+  TVmaze's `nextepisode` pointer flips the moment the tracked source
+  network's raw airtime passes, which can happen well before a UK
+  viewer's actual watch time (or simply earlier the same day) — a
+  still-relevant episode would otherwise have already rolled off into
+  "previous" and never be seen. Both are fetched in one API call, no
+  extra request cost.
+- **Per-show `watch_offset_hours` for HBO shows, not a general window
+  widening**: TVmaze has no UK-specific schedule data for Lanterns at
+  all (checked `/schedule?country=GB` and `/schedule/web` directly,
+  neither has an entry) — its tracked US Sunday-night slot converts to
+  the small hours of UK Monday morning, hours before Sky Atlantic's
+  actual evening broadcast. A per-show offset shifts the *effective*
+  airtime used for both the window check and the displayed time,
+  targeted at the specific shows known to have this lag (all HBO in
+  this watchlist) rather than loosening the window for everything,
+  which would risk false positives elsewhere.
 - **Ars Technica + BBC Technology for tech news, not The Verge**: both
   are proper RSS 2.0 and drop into `politics.py`'s existing parser with
   zero new code. The Verge is Atom, not RSS — would need a second
@@ -241,11 +266,6 @@ the user's own machine.
   story is being told via theatrical films, which TVmaze doesn't track
   (TV broadcast only). Kept in config anyway per the "dormant costs
   nothing" rule; not a bug if it stays silent forever.
-- The watchlist wasn't tested against a real "something's airing"
-  case end-to-end (nothing was airing in the ~48h window at
-  implementation time) — the section-inclusion logic was verified with
-  simulated data instead. Worth a real check whenever a watched show's
-  next episode is imminent.
 - Why the 2026-09-24 Keychain authorization prompt appeared at all is
   unconfirmed — the timeout fix (see above) prevents the failure mode
   from hanging again, but if a fresh prompt starts appearing

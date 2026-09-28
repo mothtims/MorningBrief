@@ -19,6 +19,23 @@ below uses `airstamp` (an absolute UTC instant), not the plain
 `airdate` string (JST-relative) - late-night JST broadcast slots can
 fall on what's still the previous calendar day in UK time, and airdate
 alone would misclassify that.
+
+Broadcaster-lag note (found 2026-09-29, Lanterns): the same class of
+problem also hits Western shows whose UK availability lags their
+tracked source-network schedule - TVmaze only tracks HBO's US Sunday
+21:00 ET slot for Lanterns, which converts to ~02:00 BST Monday, hours
+before most UK viewers actually watch it that evening. An optional
+per-show "watch_offset_hours" in config shifts the *effective* airtime
+used for both the window check and the displayed time, independent of
+TVmaze's own (US-centric) data. Because TVmaze's nextepisode pointer
+flips the moment the raw US airtime passes - which can happen well
+before the shifted, user-relevant time - both nextepisode and
+previousepisode are checked, not just nextepisode; otherwise a
+still-pending (per the offset) episode would already have rolled off
+into "previous" and never be seen. This also happens to fix a latent
+gap for un-offset shows too: an episode that aired earlier *today*
+would previously have been missed the same way once nextepisode
+advanced past it.
 """
 
 from __future__ import annotations
@@ -34,17 +51,24 @@ TVMAZE_BASE = "https://api.tvmaze.com"
 WINDOW_HOURS = 48
 
 
-def _next_episode(show_id: int) -> dict | None:
-    data = get_json(f"{TVMAZE_BASE}/shows/{show_id}?embed=nextepisode", log)
-    return data.get("_embedded", {}).get("nextepisode")
+def _candidate_episodes(show_id: int) -> list[dict]:
+    data = get_json(f"{TVMAZE_BASE}/shows/{show_id}?embed[]=nextepisode&embed[]=previousepisode", log)
+    embedded = data.get("_embedded", {})
+    return [ep for ep in (embedded.get("nextepisode"), embedded.get("previousepisode")) if ep]
 
 
-def _airs_in_window(ep: dict, now: datetime | None = None) -> bool:
+def _effective_airstamp(ep: dict, offset_hours: float) -> datetime | None:
     airstamp = ep.get("airstamp")
     if not airstamp:
+        return None
+    return datetime.fromisoformat(airstamp.replace("Z", "+00:00")) + timedelta(hours=offset_hours)
+
+
+def _airs_in_window(ep: dict, offset_hours: float = 0, now: datetime | None = None) -> bool:
+    air_dt = _effective_airstamp(ep, offset_hours)
+    if air_dt is None:
         return False
 
-    air_dt = datetime.fromisoformat(airstamp.replace("Z", "+00:00"))
     now = now or datetime.now(timezone.utc)
     local_now = now.astimezone()
     start_of_today_local = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -54,7 +78,7 @@ def _airs_in_window(ep: dict, now: datetime | None = None) -> bool:
     return start_of_today_utc <= air_dt <= window_end
 
 
-def _format_line(name: str, ep: dict) -> str:
+def _format_line(name: str, ep: dict, offset_hours: float = 0) -> str:
     bits = [name]
 
     season, number = ep.get("season"), ep.get("number")
@@ -67,10 +91,9 @@ def _format_line(name: str, ep: dict) -> str:
 
     label = " ".join(bits)
 
-    airstamp = ep.get("airstamp")
-    if airstamp:
-        air_dt = datetime.fromisoformat(airstamp.replace("Z", "+00:00")).astimezone()
-        return f"{label} airs {air_dt.strftime('%a %H:%M')}"
+    air_dt = _effective_airstamp(ep, offset_hours)
+    if air_dt is not None:
+        return f"{label} airs {air_dt.astimezone().strftime('%a %H:%M')}"
     return f"{label} airs soon"
 
 
@@ -83,15 +106,18 @@ def summarize_tv_watchlist(watchlist: list[dict]) -> str:
     last_exc: Exception | None = None
 
     for show in watchlist:
+        offset_hours = show.get("watch_offset_hours", 0)
         try:
-            ep = _next_episode(show["tvmaze_id"])
+            candidates = _candidate_episodes(show["tvmaze_id"])
         except Exception as exc:
             log.warning("TVmaze lookup failed for %r: %s", show["name"], exc)
             errors += 1
             last_exc = exc
             continue
-        if ep and _airs_in_window(ep):
-            upcoming.append((show["name"], ep))
+        for ep in candidates:
+            if _airs_in_window(ep, offset_hours=offset_hours):
+                upcoming.append((show["name"], ep, offset_hours))
+                break  # next/previous won't both match in practice; avoid a double mention if they somehow did
 
     if errors == len(watchlist):
         log.error("All %d TVmaze lookups failed: %s", errors, last_exc, exc_info=True)
@@ -101,7 +127,7 @@ def summarize_tv_watchlist(watchlist: list[dict]) -> str:
         return ""
 
     log.info("%d show(s) airing in the next %dh out of %d watched", len(upcoming), WINDOW_HOURS, len(watchlist))
-    return "; ".join(_format_line(name, ep) for name, ep in upcoming)
+    return "; ".join(_format_line(name, ep, offset_hours) for name, ep, offset_hours in upcoming)
 
 
 if __name__ == "__main__":

@@ -5,6 +5,46 @@ versioning (pre-release, personal-use project).
 
 ## 2026-09-28
 
+### Fixed — TV watchlist missed a show airing "tonight" (Lanterns)
+- Real bug, found because the user noticed Lanterns airing on Sky
+  Atlantic wasn't mentioned in either brief that day, despite being a
+  currently-running weekly show. Root cause: `tv_watchlist.py` only
+  ever fetched TVmaze's `nextepisode` pointer, which flips to the
+  *following* episode the instant the tracked source network's raw
+  airtime passes — for Lanterns, TVmaze only tracks HBO's US Sunday
+  21:00 ET slot (~02:00 BST Monday), so by the time either brief ran
+  that Monday, TVmaze had already moved on to episode 8 (Oct 5) and
+  episode 7 (airing that same UK evening) was invisible to the
+  watchlist entirely. This was a latent bug for *every* watchlist
+  show, not just Lanterns — any episode that aired earlier the same
+  day would have been silently missed the same way.
+- Fixed by checking both `nextepisode` and `previousepisode` (one
+  API call, TVmaze supports embedding both) instead of just
+  `nextepisode`, so an episode that already passed its tracked
+  airtime but is still "today" gets a second chance to match the
+  window.
+- Separately, added an optional per-show `watch_offset_hours` in
+  config: TVmaze has no UK-specific schedule data for Lanterns at all
+  (checked both `/schedule?country=GB` and `/schedule/web` — neither
+  has an entry), so its tracked US airtime converts to the small
+  hours of UK Monday morning, hours before most UK viewers actually
+  watch it that evening. The offset shifts the *effective* airtime
+  used for both the window check and the displayed time
+  independently of TVmaze's US-centric data. Applied `19` (landing at
+  21:00 UK, same calendar day) to Lanterns and, per the user's own
+  observation that "Game of Thrones style shows" share this pattern,
+  proactively to the watchlist's other HBO entries too: House of the
+  Dragon, A Knight of the Seven Kingdoms, Peacemaker, Game of Thrones
+  (dormant, zero cost either way). Not applied to Rings of Power
+  (Prime Video) or X-Men '97 (Disney+) — both stream day-and-date
+  globally, no evidence of the same UK lag.
+- Verified against real Lanterns data: without the fix, TVmaze's
+  `nextepisode` for show 44776 returns episode 8 (Oct 5) at evaluation
+  time, missing episode 7 entirely; with the fix, episode 7 correctly
+  matches and displays as "airs Mon 21:00." Confirmed through the full
+  pipeline — text brief, and the voice script naturally weaving in
+  "Lanterns has a new episode Monday at nine."
+
 ### Verified — R2 Worker freshness enforcement (ADR-0004)
 - User confirmed the correct brief played for both the morning and
   afternoon windows. That day's Keychain hang (see below) meant this
