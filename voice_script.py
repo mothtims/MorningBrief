@@ -13,12 +13,12 @@ insurance and keeps the security posture consistent project-wide.
 
 from __future__ import annotations
 
-import subprocess
 from datetime import datetime
 
 import anthropic
 
 from brief import BriefData
+from keychain import load_secret
 from logutil import get_logger
 
 log = get_logger("voice.script")
@@ -102,17 +102,7 @@ text - no headers, no labels, no markdown.
 
 
 def _load_api_key() -> str:
-    result = subprocess.run(
-        ["security", "find-generic-password", "-s", KEYCHAIN_SERVICE_NAME, "-w"],
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(
-            f"Could not read Anthropic API key from Keychain "
-            f"(service '{KEYCHAIN_SERVICE_NAME}'): {result.stderr.strip()}"
-        )
-    return result.stdout.strip()
+    return load_secret(KEYCHAIN_SERVICE_NAME)
 
 
 def generate_script(data: BriefData) -> str:

@@ -11,12 +11,12 @@ re-exchange on every request against the 30/min rate limit.
 from __future__ import annotations
 
 import json
-import subprocess
 import urllib.parse
 from datetime import datetime, timezone
 from pathlib import Path
 
 from httputil import get_json
+from keychain import load_secret
 from logutil import get_logger
 
 log = get_logger("trains")
@@ -28,17 +28,7 @@ BASE_URL = "https://data.rtt.io"
 
 
 def _load_refresh_token() -> str:
-    result = subprocess.run(
-        ["security", "find-generic-password", "-s", KEYCHAIN_SERVICE_NAME, "-w"],
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(
-            f"Could not read Realtime Trains token from Keychain "
-            f"(service '{KEYCHAIN_SERVICE_NAME}'): {result.stderr.strip()}"
-        )
-    return result.stdout.strip()
+    return load_secret(KEYCHAIN_SERVICE_NAME)
 
 
 def get_access_token() -> str:

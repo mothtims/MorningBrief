@@ -17,12 +17,12 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-import subprocess
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
+from keychain import load_secret
 from logutil import get_logger
 
 log = get_logger("voice.storage")
@@ -32,19 +32,6 @@ R2_SECRET_ACCESS_KEY_SERVICE = "morningbrief-r2-secret-access-key"
 OBJECT_KEY = "latest.mp3"
 REGION = "auto"
 SERVICE = "s3"
-
-
-def _load_keychain_secret(service_name: str) -> str:
-    result = subprocess.run(
-        ["security", "find-generic-password", "-s", service_name, "-w"],
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(
-            f"Could not read {service_name} from Keychain: {result.stderr.strip()}"
-        )
-    return result.stdout.strip()
 
 
 def _hmac_sha256(key: bytes, msg: str) -> bytes:
@@ -103,8 +90,8 @@ def push_latest_brief(mp3_path: Path, account_id: str, bucket: str) -> None:
     which has already happened by the time this runs (see
     scheduled_send_voice.py - this is a post-success, best-effort
     mirror, not part of the delivery-critical path)."""
-    access_key = _load_keychain_secret(R2_ACCESS_KEY_ID_SERVICE)
-    secret_key = _load_keychain_secret(R2_SECRET_ACCESS_KEY_SERVICE)
+    access_key = load_secret(R2_ACCESS_KEY_ID_SERVICE)
+    secret_key = load_secret(R2_SECRET_ACCESS_KEY_SERVICE)
 
     payload = mp3_path.read_bytes()
     payload_hash = hashlib.sha256(payload).hexdigest()

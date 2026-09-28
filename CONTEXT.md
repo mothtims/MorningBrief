@@ -1,6 +1,6 @@
 # Context
 
-*Last updated: 2026-09-23 — keep this current as things change. This is a
+*Last updated: 2026-09-28 — keep this current as things change. This is a
 living snapshot, not history — full history lives in `CHANGELOG.md`, full
 reasoning behind decisions in `DECISIONS.md` (project-local, from
 ADR-0001 on), `VOICE_PROPOSAL.md`/`CALENDAR_PROPOSAL.md`/`TV_TECH_PROPOSAL.md`/
@@ -104,6 +104,20 @@ the user's own machine.
   station never has platform data this far ahead. Evening leg
   unchanged, still shows the real platform.
 - **Podcast RSS**: still optional/deferred, not started.
+- **Keychain lookups now time out (10s)**: on 2026-09-24, a scheduled
+  voice run hung for over 10 hours after `security
+  find-generic-password` blocked on an interactive authorization
+  prompt with no GUI session to click it under `launchd`. None of the
+  three Keychain call sites (RTT token, Anthropic API key, R2
+  credentials) had a timeout. Fixed by centralizing all three into a
+  shared `keychain.py` (mirroring `httputil.py`'s precedent) with a
+  10s timeout — a hang now fails fast with a clear error instead of
+  blocking indefinitely, letting each caller's normal degradation
+  contract run. Verified against a real `launchctl kickstart` of the
+  voice job: full pipeline, calendar through the R2 push, in under 17
+  seconds. Root cause of the original prompt is unconfirmed (unified
+  log retention had expired by the time this was investigated) — the
+  fix addresses the failure mode, not a specific trigger.
 - All work described above is committed and pushed.
 
 ## Why things are the way they are
@@ -192,6 +206,13 @@ the user's own machine.
   not yet announced" was permanent noise there — but the evening leg
   (Cannon Street) genuinely benefits from platform info when available,
   so the flag is per-leg config, not a blanket removal of the feature.
+- **10s Keychain timeout, not longer**: a working lookup returns
+  near-instantly; a call that hasn't returned by 10s is almost always
+  blocked on an interactive prompt no one's there to click under
+  `launchd`, not genuine slowness. Waiting longer wouldn't help — a
+  human noticing and dismissing a prompt takes far longer than any
+  reasonable timeout anyway — so failing fast and letting the
+  degradation contract run is strictly better than a longer wait.
 
 ## Known issues / caveats
 
@@ -221,3 +242,8 @@ the user's own machine.
   implementation time) — the section-inclusion logic was verified with
   simulated data instead. Worth a real check whenever a watched show's
   next episode is imminent.
+- Why the 2026-09-24 Keychain authorization prompt appeared at all is
+  unconfirmed — the timeout fix (see above) prevents the failure mode
+  from hanging again, but if a fresh prompt starts appearing
+  regularly, that's a different, still-open question worth
+  investigating (e.g. a system update resetting ACLs).

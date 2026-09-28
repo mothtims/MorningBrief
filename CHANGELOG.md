@@ -3,6 +3,48 @@
 All notable changes to this project. Entries are dated; no semantic
 versioning (pre-release, personal-use project).
 
+## 2026-09-28
+
+### Fixed — real incident: a scheduled run hung for 10+ hours on an unbounded Keychain lookup
+- On 2026-09-24, the 07:00 voice run's R2 push (and, evidence suggests,
+  the 16:30 run too) blocked indefinitely on a `security
+  find-generic-password` call that needed an interactive Keychain
+  authorization prompt - with no GUI session interaction available
+  under `launchd`, and no timeout on the call, it simply hung. The
+  afternoon brief never arrived; the morning run's R2 push only
+  completed once the user happened to notice and dismiss a stale
+  prompt on their own Terminal roughly 10h44m later. `ps aux` and a
+  unified-log check afterward found nothing still stuck and no
+  crash/traceback in either job's error log - consistent with an
+  unbounded block that only resolved because a human eventually
+  intervened, not with any code path that would have recovered on
+  its own.
+- None of the three `security find-generic-password` call sites
+  (`trains.py`, `voice_script.py`, `voice_storage.py`) had a
+  `timeout=` on the subprocess call, so any future authorization
+  prompt - for any of the four Keychain-backed secrets this project
+  uses - would reproduce the same unbounded hang, defeating the
+  entire degrade-visibly-never-block design this project has followed
+  throughout.
+- Fixed by centralizing all three into a new shared `keychain.py`
+  module (matching `httputil.py`'s precedent for shared retry logic
+  that was previously duplicated across fetchers) with a 10-second
+  timeout. A timeout now raises a clear, specific `RuntimeError`
+  identifying the likely cause (a pending authorization prompt) rather
+  than hanging - which flows into each caller's existing degradation
+  contract (a visible fallback note) instead of silence.
+- Verified: all four Keychain-backed secrets load cleanly through the
+  new shared module; a simulated timeout raises the clear error
+  immediately rather than blocking; and a real `launchctl kickstart`
+  of the voice job completed the full pipeline (calendar through the
+  R2 push) in under 17 seconds with no hang, no error - the actual
+  production pathway, not just a manual `uv run` invocation.
+- Root cause of *why* the prompt appeared in the first place remains
+  unconfirmed (unified log retention had already expired for that
+  window by the time this was investigated) - the fix addresses the
+  failure *mode* (unbounded block) regardless of what triggers it
+  again in the future.
+
 ## 2026-09-23
 
 ### Added — household awareness and platform suppression
