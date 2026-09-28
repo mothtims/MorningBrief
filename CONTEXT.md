@@ -84,9 +84,13 @@ the user's own machine.
   rejects (uniform 404, same as any other rejection) any object older
   than 3 hours, since Shortcuts can't read `Last-Modified` itself and
   would otherwise happily play a stale brief left behind by a failed
-  run. See `DECISIONS.md` ADR-0004. Pending: redeploy (user pastes the
-  updated script into the dashboard) and the user's own post-deploy
-  `curl` check that a >3h-old object now 404s.
+  run. See `DECISIONS.md` ADR-0004. Deployed and considered verified —
+  the user confirmed the correct brief played for both the morning and
+  afternoon windows on 2026-09-28. That day's Keychain hang (see
+  below) means this wasn't a clean-room test of the 3h boundary
+  specifically, so treat it as good-enough real-world confirmation
+  rather than a precise pass/fail of the exact cutoff — revisit if a
+  stale brief is ever actually observed playing.
 - **Household awareness**: live, in the voice script only. A
   `household` config section (listener, other members, plain-English
   attribution/implication rules) is fed into `voice_script.py`'s

@@ -5,6 +5,14 @@ versioning (pre-release, personal-use project).
 
 ## 2026-09-28
 
+### Verified — R2 Worker freshness enforcement (ADR-0004)
+- User confirmed the correct brief played for both the morning and
+  afternoon windows. That day's Keychain hang (see below) meant this
+  wasn't a clean-room test of the exact 3h boundary, so this counts as
+  good-enough real-world confirmation of the deployed freshness gate,
+  not a precise pass/fail of the cutoff itself — revisit if a stale
+  brief is ever actually observed playing.
+
 ### Fixed — real incident: a scheduled run hung for 10+ hours on an unbounded Keychain lookup
 - On 2026-09-24, the 07:00 voice run's R2 push (and, evidence suggests,
   the 16:30 run too) blocked indefinitely on a `security
