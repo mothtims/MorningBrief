@@ -5,6 +5,34 @@ versioning (pre-release, personal-use project).
 
 ## 2026-09-28
 
+### Fixed — voice script sometimes silently omitted TV info that was present in the data
+- Found via a real test delivery: `tv_watchlist.py` correctly found
+  Lanterns airing (confirmed in the log), but the delivered voice
+  brief didn't mention it at all. Reproduced deliberately: regenerated
+  the script 3 times against the exact same real data (identical
+  `tv_line`) and got Lanterns mentioned in 2 out of 3 - genuinely
+  stochastic, not a wiring bug. The prompt's trim-priority instruction
+  ("shorten or drop the news section first, then TV if present")
+  governs what to cut *under length pressure*, but nothing told the
+  model that every provided section should appear at all when there's
+  no pressure to trim - so it was free to drop TV in favour of
+  whatever felt like a better story that particular time (in the
+  dropped case, a real calendar event competing for the same "evening
+  plans" narrative space).
+- Fixed by adding one explicit sentence to the prompt: "Cover every
+  section provided below, even briefly - don't drop one just because
+  another item feels more interesting to talk about; the listener
+  chose what's in the TV watchlist specifically to be told about it."
+  Re-tested 5 regenerations against the same real data afterward: 5/5
+  mentioned Lanterns.
+- Honest caveat: this reduces the failure rate, it doesn't mathematically
+  guarantee it - the script is still LLM-generated, not hard-coded, so
+  a rare future omission wouldn't be shocking. A harder guarantee
+  (validate the show name appears in the output, regenerate once if
+  not) is possible as a follow-up if 5/5 in practice turns out not to
+  be reliable enough, but wasn't built now - real added latency/cost
+  for a problem the prompt fix already addresses well in testing.
+
 ### Fixed — TV watchlist missed a show airing "tonight" (Lanterns)
 - Real bug, found because the user noticed Lanterns airing on Sky
   Atlantic wasn't mentioned in either brief that day, despite being a

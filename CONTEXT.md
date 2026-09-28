@@ -198,6 +198,17 @@ the user's own machine.
   targeted at the specific shows known to have this lag (all HBO in
   this watchlist) rather than loosening the window for everything,
   which would risk false positives elsewhere.
+- **Prompt explicitly requires covering every provided section**: found
+  via a real test delivery that the model would sometimes silently
+  drop TV info even though `tv_line` was populated and well within the
+  word budget — reproduced deliberately (2/3 regenerations against
+  identical real data mentioned it, 1/3 didn't). The trim-priority
+  instruction only governed what to cut *under* length pressure;
+  nothing said every section should appear when there's no pressure to
+  trim. One added sentence fixed it in testing (5/5 after). Not a hard
+  guarantee — still LLM-generated, not hard-coded — a validate-and-
+  retry mechanism is a possible harder fix if this turns out
+  insufficient in practice.
 - **Ars Technica + BBC Technology for tech news, not The Verge**: both
   are proper RSS 2.0 and drop into `politics.py`'s existing parser with
   zero new code. The Verge is Atom, not RSS — would need a second
