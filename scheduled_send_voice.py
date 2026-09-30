@@ -19,7 +19,10 @@ scheduled_send.py already uses) rather than failing the whole run:
   - script generation fails       -> send text brief instead
   - TTS fails                     -> send text brief instead
   - audio conversion fails        -> send text brief instead
-  - Telegram voice upload fails   -> send text brief instead
+  - Telegram voice upload fails   -> one retry after a short backoff
+                                      (timeouts only - see
+                                      SEND_VOICE_RETRY_ATTEMPTS), then
+                                      send text brief instead
 
 v2 storage mirror (R2_DELIVERY_PROPOSAL.md, DECISIONS.md ADR-0003):
 runs strictly *after* Telegram delivery succeeds, never before and
@@ -34,6 +37,7 @@ from __future__ import annotations
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 from brief import format_text, gather_brief_data, load_config
@@ -47,6 +51,17 @@ log = get_logger("scheduled_send_voice")
 
 SEND_MESSAGE_SCRIPT = "/Users/mothtims/Projects/Bizkit/services/telegram-bridge/send_message.py"
 SEND_VOICE_SCRIPT = "/Users/mothtims/Projects/Bizkit/services/telegram-bridge/send_voice.py"
+
+# Found 2026-09-30: the 07:00 upload timed out once, right around when
+# the machine would still be settling its network connection after
+# waking for the scheduled job - a transient blip, not a real API
+# failure (the same Keychain lookup this call depends on completed in
+# 0.03s when checked afterward). One retry after a short backoff turns
+# a fallback-to-text morning into a real voice delivery for exactly
+# this class of failure, without retrying genuine API errors (bad
+# token, bad chat id) that a retry wouldn't fix anyway.
+SEND_VOICE_RETRY_ATTEMPTS = 2
+SEND_VOICE_RETRY_BACKOFF_SECONDS = 5
 
 
 def send_text_fallback(text: str, stage: str) -> None:
@@ -73,14 +88,31 @@ def send_text_fallback(text: str, stage: str) -> None:
 
 
 def send_voice_note(ogg_path: Path) -> None:
-    result = subprocess.run(
-        [sys.executable, SEND_VOICE_SCRIPT, str(ogg_path)],
-        capture_output=True,
-        text=True,
-        timeout=30,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(result.stderr.strip())
+    """Raises on failure - caller falls back to text. Retries once on
+    a timeout specifically (see SEND_VOICE_RETRY_ATTEMPTS above) - a
+    genuine API error (non-zero exit, e.g. bad token) is not retried
+    and raises immediately, since trying again wouldn't fix it."""
+    for attempt in range(1, SEND_VOICE_RETRY_ATTEMPTS + 1):
+        try:
+            result = subprocess.run(
+                [sys.executable, SEND_VOICE_SCRIPT, str(ogg_path)],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+        except subprocess.TimeoutExpired:
+            if attempt < SEND_VOICE_RETRY_ATTEMPTS:
+                log.warning(
+                    "Telegram voice upload timed out (attempt %d/%d), retrying in %ds",
+                    attempt, SEND_VOICE_RETRY_ATTEMPTS, SEND_VOICE_RETRY_BACKOFF_SECONDS,
+                )
+                time.sleep(SEND_VOICE_RETRY_BACKOFF_SECONDS)
+                continue
+            raise
+        else:
+            if result.returncode != 0:
+                raise RuntimeError(result.stderr.strip())
+            return
 
 
 def send_text_note(note: str) -> None:

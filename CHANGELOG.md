@@ -3,6 +3,29 @@
 All notable changes to this project. Entries are dated; no semantic
 versioning (pre-release, personal-use project).
 
+## 2026-09-30
+
+### Fixed — the 07:00 voice upload timed out, degraded correctly to text
+- Real incident: the morning voice note didn't arrive.
+  `send_voice_note()`'s Telegram upload hit its existing 30s timeout,
+  and the pipeline correctly fell back to text (with the visible
+  "Voice brief failed today: Telegram upload stage." note) - the
+  degradation contract worked exactly as designed, unlike the
+  2026-09-24 Keychain incident. Checked whether this was a repeat of
+  that bug: the same Keychain lookup, using the exact production
+  interpreter, completed in 0.03s when tested afterward - not a stuck
+  authorization prompt. Most likely a transient network blip right as
+  the machine settled its connection after waking for the scheduled
+  job, though this wasn't confirmed with certainty.
+- Added one retry to `send_voice_note()`, specifically for a timeout
+  (not a genuine API error like a bad token, which a retry wouldn't
+  fix and now still raises immediately on the first attempt) - a
+  short 5s backoff, then one more attempt before falling back to text.
+  Verified all three shapes with mocked `subprocess.run`: timeout then
+  success (2 attempts, retried correctly), timeout both times (raises
+  cleanly after exactly 2 attempts, no hang), and a genuine non-zero
+  exit (raises immediately, no wasted retry).
+
 ## 2026-09-28
 
 ### Fixed — TV airtime said "later in the week" for a show airing within the hour

@@ -1,6 +1,6 @@
 # Context
 
-*Last updated: 2026-09-28 — keep this current as things change. This is a
+*Last updated: 2026-09-30 — keep this current as things change. This is a
 living snapshot, not history — full history lives in `CHANGELOG.md`, full
 reasoning behind decisions in `DECISIONS.md` (project-local, from
 ADR-0001 on), `VOICE_PROPOSAL.md`/`CALENDAR_PROPOSAL.md`/`TV_TECH_PROPOSAL.md`/
@@ -36,7 +36,12 @@ the user's own machine.
   delivered via Telegram's `sendVoice`. Any stage failure falls back to
   the existing text delivery, now with a short visible note naming
   which stage failed (e.g. "Voice brief failed today: TTS stage.")
-  rather than degrading silently.
+  rather than degrading silently. The Telegram upload step specifically
+  retries once on a timeout (5s backoff) before falling back — added
+  2026-09-30 after a real 07:00 upload timeout, likely a transient
+  network blip around when the machine wakes for the scheduled job;
+  confirmed this wasn't a repeat of the 2026-09-24 Keychain hang (the
+  same lookup completed in 0.03s when checked afterward).
 - **Default voice**: `en_GB-alba-medium`, locked in 2026-09-08 after an
   A/B listen against three other Piper voices sent as labelled
   Telegram voice notes.
