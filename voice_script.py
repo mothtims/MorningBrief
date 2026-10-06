@@ -89,16 +89,17 @@ lead conversationally into the next the way a person actually talks.\
 {household_block}
 
 Given the data below - today's calendar, train status, weather, and \
-news, plus TV when there's an upcoming episode - turn it into that \
-kind of script. Cover every section provided below, even briefly - \
-don't drop one just because another item feels more interesting to \
-talk about; the listener chose what's in the TV watchlist specifically \
-to be told about it. Be concise rather than elaborating on each item. \
-If you need to trim to stay in budget, shorten or drop the news \
-section first, then TV if present - calendar and train details should \
-never be cut. If a data point is unavailable or degraded, mention that \
-naturally rather than skipping it silently. Output only the script \
-text - no headers, no labels, no markdown.
+news, plus TV when there's an upcoming episode and plant watering when \
+something's due - turn it into that kind of script. Cover every \
+section provided below, even briefly - don't drop one just because \
+another item feels more interesting to talk about; the listener chose \
+what's in the TV watchlist and which plants to be reminded about \
+specifically to be told about them. Be concise rather than elaborating \
+on each item. If you need to trim to stay in budget, shorten or drop \
+the news section first, then TV if present - calendar and train \
+details should never be cut. If a data point is unavailable or \
+degraded, mention that naturally rather than skipping it silently. \
+Output only the script text - no headers, no labels, no markdown.
 
 {data_block}
 """
@@ -120,6 +121,8 @@ def generate_script(data: BriefData) -> str:
     ]
     if data.tv_line:
         data_lines.append(f"TV: {data.tv_line}")
+    if data.plant_line:
+        data_lines.append(f"Plants: {data.plant_line}")
     data_lines.append(f"{data.news_label}: {data.news_line}")
 
     prompt = SCRIPT_PROMPT_TEMPLATE.format(

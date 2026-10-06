@@ -25,6 +25,7 @@ from datetime import datetime
 from pathlib import Path
 
 from calendar_events import summarize_calendar
+from plant_care import summarize_plants
 from politics import summarize_politics
 from tech_news import summarize_tech
 from trains import summarize_leg
@@ -43,6 +44,7 @@ class BriefData:
     news_line: str
     calendar_line: str
     tv_line: str
+    plant_line: str
     household: dict
 
 
@@ -75,6 +77,11 @@ def gather_brief_data() -> BriefData:
         news_line=summarize_politics() if morning else summarize_tech(),
         calendar_line=summarize_calendar(config.get("calendar_allowlist", [])),
         tv_line=summarize_tv_watchlist(config.get("tv_watchlist", [])),
+        # Plant section is morning-only (ADR-0002-style single switch,
+        # not a second time check) - also the one daily call that
+        # establishes state/plant_daily.json's "pending" list for the
+        # evening check-in to read; see plant_care.py's module docstring.
+        plant_line=summarize_plants(config) if morning else "",
         household=config.get("household", {}),
     )
 
@@ -87,6 +94,8 @@ def format_text(data: BriefData) -> str:
     ]
     if data.tv_line:
         sections.append(f"📺 {data.tv_line}")
+    if data.plant_line:
+        sections.append(data.plant_line)
     sections.append(f"📰 {data.news_line}")
     return "\n\n".join(sections)
 

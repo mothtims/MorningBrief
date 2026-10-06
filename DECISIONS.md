@@ -213,3 +213,68 @@ the model's own (uninstructed) judgment. Verified against three
 real-shaped examples (an event naming the listener, an event naming
 another adult, and an evening event triggering the implication rule)
 before shipping — all three attributed and implied correctly.
+
+## ADR-0006: Plant watering model — config-driven ranges with code-computed seasonal/temperature adjustment, not a fixed schedule
+
+**Context:** Houseplant watering needs vary by season and weather in
+ways a fixed per-plant interval can't capture — the same basil needs
+water roughly twice as often in August as in January. The brief
+should flag plants proactively (ahead of a hot day, not after),
+using language the user actually finds useful ("day 3 of its usual
+2–4"), without either hardcoding plant-specific logic or asking an
+LLM to infer watering science from a prompt. This also needed to
+survive real feedback over a season, not just the day it was built —
+a single "still damp" response shouldn't permanently bias a plant's
+schedule, and a wet winter's adjustment shouldn't quietly persist
+into next summer.
+
+**Decision:** Each plant's base range (`range_days`, in
+`state/plants.json`) is the user's own given values, never mutated by
+the model. Two independently-tunable adjustment layers combine
+multiplicatively to compute an effective due-date threshold:
+
+- A 12-entry month→multiplier lookup table (`SEASONAL_MULTIPLIER` in
+  `plant_care.py`), anchored so October/April (the user's own
+  calibration month for the base ranges) sit at `1.0`, stretching to
+  `1.25` in deep winter (Dec/Jan/Feb) and compressing to `0.85` in
+  summer (Jun–Aug).
+- A four-threshold asymmetric temperature factor keyed on forecast
+  high (today *and* tomorrow, so heat can be warned about a day
+  ahead): `0.95` at or below 10°C (mild — heating dries the air
+  despite the cold), `1.0` in the 10–25°C comfort band, `0.85` at
+  25–28°C, `0.65` at 28–30°C, and a **hard override** at 30°C+ that
+  forces every plant to a 1-day effective threshold regardless of its
+  own range — not a further point on the multiplier curve, since
+  "daily check" isn't expressible as a multiplier on a range that
+  might be much longer than a day.
+
+The brief always displays the *original* configured range, never the
+computed effective one, so the user's mental model of each plant
+stays anchored to numbers they chose; `days_since(last_watered)` is
+always the real, honest day count.
+
+A `learned_adjustment_days` field nudges one plant's effective range
+longer over time specifically in response to repeated "still damp"
+signals — the only place this model learns from feedback rather than
+from static config. Two tunables bound it: a **cap** at 50% of the
+plant's own base upper bound (`LEARNED_ADJUSTMENT_CAP_FRACTION`, e.g.
+a cap of 5 days for a plant whose base upper bound is 10) so a run of
+damp responses can't drift a plant's schedule arbitrarily far from
+what was configured, and a **decay** of 1 day per ~4 weeks
+(`LEARNED_ADJUSTMENT_DECAY_PER_PERIOD` / `LEARNED_ADJUSTMENT_DECAY_PERIOD_DAYS`)
+without a fresh "still damp" signal, computed fresh at read time from
+the stored value and last-bump date rather than via a separate daily
+decay job — so a winter's accumulated learning fades out over the
+following months rather than persisting unchanged into summer.
+
+**Consequences:** Tuning the model (a different summer factor, a
+different hot-day threshold, a faster decay) is an edit to small
+lookup tables/constants in `plant_care.py`, not a code change to the
+due-date logic itself. The model is asymmetric by design (heat
+dominates, cold is mild) and that asymmetry, along with the cap/decay
+values above, are tracked decisions with specific numbers, not
+accidents of whatever was first tried — revisit the constants
+directly if real-world experience says they're off. No symmetric
+"shrink the range on early watering" signal was requested or built;
+only "still damp" ever moves `learned_adjustment_days`, and only
+upward (before decay).

@@ -7,9 +7,11 @@
   "tv_watchlist": [],
   "r2_account_id": "",
   "r2_bucket": "",
+  "plant_away_keywords": ["away", "holiday", "trip"],
   "household": {
     "listener": "Alex",
     "members": ["Jordan (partner)", "Child One (child)", "Child Two (child)"],
+    "other_adult_names": ["Jordan"],
     "attribution_rules": [
       "An event naming another household adult by name belongs to that person, not Alex.",
       "An event naming Alex by name, or naming no one specifically, belongs to Alex."

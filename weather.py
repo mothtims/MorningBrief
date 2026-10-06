@@ -1,6 +1,12 @@
 """
 Weather fetcher: UK postcode -> coordinates (postcodes.io) -> forecast
 (Open-Meteo) -> plain practical advice text. No API key for either.
+
+forecast_highs() (added for plant_care.py's temperature-adjusted
+watering model, PLANT_CARE_PROPOSAL.md) reuses postcode_to_coords()
+rather than duplicating it, and asks Open-Meteo for more than one day
+so a hot day can be warned about a day ahead, not just reacted to on
+the day itself.
 """
 
 from __future__ import annotations
@@ -46,17 +52,29 @@ def postcode_to_coords(postcode: str) -> tuple[float, float]:
     return result["latitude"], result["longitude"]
 
 
-def get_forecast(latitude: float, longitude: float) -> dict:
+def get_forecast(latitude: float, longitude: float, forecast_days: int = 1) -> dict:
     query = urllib.parse.urlencode(
         {
             "latitude": latitude,
             "longitude": longitude,
             "daily": "temperature_2m_max,temperature_2m_min,precipitation_probability_max,weathercode",
             "timezone": "Europe/London",
-            "forecast_days": 1,
+            "forecast_days": forecast_days,
         }
     )
     return get_json(f"{OPEN_METEO_BASE}?{query}", log)
+
+
+def forecast_highs(postcode: str, days: int = 2) -> list[float]:
+    """[today's high, tomorrow's high, ...] in Celsius. Raises on
+    failure - callers (plant_care.py) treat "can't get a temperature
+    factor" as "assume no temperature adjustment" rather than failing
+    their whole section over a weather-API hiccup; the weather section
+    itself already surfaces weather-API failures, so this doesn't need
+    its own visible-failure text."""
+    lat, lon = postcode_to_coords(postcode)
+    forecast = get_forecast(lat, lon, forecast_days=days)
+    return list(forecast["daily"]["temperature_2m_max"])
 
 
 def summarize_weather(postcode: str) -> str:

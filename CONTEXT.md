@@ -1,21 +1,26 @@
 # Context
 
-*Last updated: 2026-09-30 — keep this current as things change. This is a
+*Last updated: 2026-10-06 — keep this current as things change. This is a
 living snapshot, not history — full history lives in `CHANGELOG.md`, full
 reasoning behind decisions in `DECISIONS.md` (project-local, from
 ADR-0001 on), `VOICE_PROPOSAL.md`/`CALENDAR_PROPOSAL.md`/`TV_TECH_PROPOSAL.md`/
-`R2_DELIVERY_PROPOSAL.md` (design proposals), and the inline
-comments/docstrings each module carries.*
+`R2_DELIVERY_PROPOSAL.md`/`PLANT_CARE_PROPOSAL.md` (design proposals), and
+the inline comments/docstrings each module carries.*
 
 ## What this is
 
 MorningBrief is a personal daily briefing pipeline: it gathers today's
 calendar, train status, weather, any upcoming episodes from a TV
-watchlist, and news (politics in the morning, tech in the afternoon —
-see rotation below), and delivers them to one person over Telegram —
-as text (live since launch) and, as of the voice edition, also as a
-short spoken audio briefing. It runs unattended via macOS `launchd` on
-the user's own machine.
+watchlist, houseplant watering reminders, and news (politics in the
+morning, tech in the afternoon — see rotation below), and delivers them
+to one person over Telegram — as text (live since launch) and, as of
+the voice edition, also as a short spoken audio briefing. It also sends
+a proactive evening plant check-in with Telegram buttons, and accepts
+free-text plant logging and a manual away-mode command. It runs
+unattended via macOS `launchd` on the user's own machine, with one
+piece (button/text-pattern handling) living in Bizkit's
+`telegram-bridge` rather than this repo — the first genuinely two-repo
+feature this project has needed.
 
 ## Current state
 
@@ -121,6 +126,22 @@ the user's own machine.
   station never has platform data this far ahead. Evening leg
   unchanged, still shows the real platform.
 - **Podcast RSS**: still optional/deferred, not started.
+- **Houseplant watering reminders**: live, two-repo feature (see
+  `PLANT_CARE_PROPOSAL.md`, `DECISIONS.md` ADR-0006, and Bizkit's
+  ADR-0014). Morning brief (text + voice, 07:00 only) flags plants at
+  or past their seasonally/temperature-adjusted due date, grouped into
+  one line, silent when nothing's due. `plant_checkin.py` (~19:30,
+  seven days a week) sends a Telegram message with Watered/Still
+  damp/Not yet buttons for anything still pending; `plant_weekend.py`
+  (Sat/Sun ~09:00) covers the gap left by the text/voice jobs being
+  weekday-only. Free-text logging ("watered the basil") and a manual
+  away command ("/plants away 5" / "/plants back") both work via two
+  new Bizkit bridge capabilities (`callback_commands`,
+  `text_patterns`) that didn't exist before this feature needed them.
+  Away mode also auto-detects a genuinely multi-day, all-day calendar
+  event not attributed to another household adult. `state/plants.json`
+  seeded with 7 real plants; real household `other_adult_names`
+  (`["Sarah", "Mum", "Rich"]`) wired in `config.local.json`.
 - **Keychain lookups now time out (10s)**: on 2026-09-24, a scheduled
   voice run hung for over 10 hours after `security
   find-generic-password` blocked on an interactive authorization
@@ -266,6 +287,37 @@ the user's own machine.
   human noticing and dismissing a prompt takes far longer than any
   reasonable timeout anyway — so failing fast and letting the
   degradation contract run is strictly better than a longer wait.
+- **Plant watering uses a tunable model, not a fixed schedule**: a
+  12-month seasonal multiplier and a four-threshold temperature factor
+  (asymmetric — heat dominates, cold is mild, with a 30°C+ hard
+  override to a daily check) combine to shift *when* a plant is
+  flagged, while the brief always shows the original configured range.
+  `learned_adjustment_days` grows on "still damp" signals, capped at
+  50% of a plant's base upper bound and decaying over ~4-week periods
+  so it doesn't persist across seasons. See `DECISIONS.md` ADR-0006
+  for the exact numbers and why each one is what it is.
+- **Button presses and free-text logging live in Bizkit, not here**:
+  this project has no way to receive a Telegram update at all — only
+  the bridge holds the bot token and polls for updates — so
+  `callback_commands` (buttons) and `text_patterns` (prefix-matched
+  free text) had to be built as new bridge capabilities, generalizing
+  the existing `custom_commands` bypass-the-LLM model rather than
+  routing either through conversation. See Bizkit's `DECISIONS.md`
+  ADR-0014.
+- **Away detection is a narrow, deterministic heuristic, not the full
+  attribution_rules**: those rules are plain English meant for an LLM
+  to apply with nuance; away-mode only needs one yes/no (does this
+  event's title name someone else), so it uses a separate, explicit
+  `household.other_adult_names` list and a simple substring/word-match
+  check, not the model. Multi-day *and* all-day is required together —
+  a single-day all-day event (e.g. a school non-uniform day) doesn't
+  count, even with a matching keyword.
+- **Idempotent button presses, not message-editing**: re-pressing an
+  already-answered plant button gets an instant "Already logged" toast
+  rather than the original message's keyboard being edited to remove
+  that row — accepted as simpler, at the cost of buttons staying
+  visually pressable (but inert) after use. See
+  `PLANT_CARE_PROPOSAL.md` section 4g.
 
 ## Known issues / caveats
 
@@ -295,3 +347,19 @@ the user's own machine.
   from hanging again, but if a fresh prompt starts appearing
   regularly, that's a different, still-open question worth
   investigating (e.g. a system update resetting ACLs).
+- Plant watering reminders: all logic verified against real data
+  (real calendar events, a real forecast, the full brief/voice
+  pipeline, every script under both the project's own `.venv` and the
+  bridge's bare interpreter) but **not yet exercised end-to-end via
+  real `launchd` jobs or a real Telegram button press** —
+  `com.morningbrief.plant_checkin.plist`/`plant_weekend.plist` aren't
+  registered to `~/Library/LaunchAgents/` yet, and the bridge hasn't
+  been restarted to pick up the new `config.local.json` entries. Both
+  are pending explicit go-ahead, per this project's established
+  pattern of manual verification before registering a new scheduled
+  job.
+- `plant_log.py`'s matching is deliberately simple substring/word
+  matching, not fuzzy — a genuinely novel phrasing for a plant (not
+  its name, not its location, not one of its `match_terms`) won't be
+  recognized. `match_terms` can be extended in `state/plants.json` as
+  real phrasing patterns come up in practice.

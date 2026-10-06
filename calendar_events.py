@@ -12,6 +12,13 @@ under a real headless launchd LaunchAgent using this project's actual
 project's Python version/interpreter path ever changes, the grant needs
 re-confirming - same caveat class as the onnxruntime/Python 3.13 pin in
 voice_tts.py.
+
+get_events() (added for plant_away.py's calendar-based away detection,
+PLANT_CARE_PROPOSAL.md) returns structured {title, start, end, all_day}
+dicts over a wider window than "today only" - a trip is usually added
+to the calendar well before it starts, so detecting "today falls within
+some event's range" needs the event's full span queryable, not just
+whatever's happening today.
 """
 
 from __future__ import annotations
@@ -49,14 +56,22 @@ def _request_access(store: EventKit.EKEventStore) -> bool:
     return bool(result["granted"])
 
 
-def _todays_events(store: EventKit.EKEventStore, allowed_calendar_names: list[str]) -> list:
+def _window_events(
+    store: EventKit.EKEventStore,
+    allowed_calendar_names: list[str],
+    days_back: int,
+    days_ahead: int,
+) -> list:
     local_calendar = NSCalendar.currentCalendar()
     local_calendar.setTimeZone_(NSTimeZone.localTimeZone())
 
     now = NSDate.date()
     start_of_today = local_calendar.startOfDayForDate_(now)
-    start_of_tomorrow = local_calendar.dateByAddingUnit_value_toDate_options_(
-        NSCalendarUnitDay, 1, start_of_today, 0
+    window_start = local_calendar.dateByAddingUnit_value_toDate_options_(
+        NSCalendarUnitDay, -days_back, start_of_today, 0
+    )
+    window_end = local_calendar.dateByAddingUnit_value_toDate_options_(
+        NSCalendarUnitDay, days_ahead, start_of_today, 0
     )
 
     all_calendars = store.calendarsForEntityType_(EventKit.EKEntityTypeEvent)
@@ -65,9 +80,13 @@ def _todays_events(store: EventKit.EKEventStore, allowed_calendar_names: list[st
         return []
 
     predicate = store.predicateForEventsWithStartDate_endDate_calendars_(
-        start_of_today, start_of_tomorrow, calendars
+        window_start, window_end, calendars
     )
     return list(store.eventsMatchingPredicate_(predicate))
+
+
+def _todays_events(store: EventKit.EKEventStore, allowed_calendar_names: list[str]) -> list:
+    return _window_events(store, allowed_calendar_names, days_back=0, days_ahead=1)
 
 
 def _dedupe(events: list) -> list:
@@ -122,6 +141,35 @@ def summarize_calendar(allowed_calendar_names: list[str]) -> str:
 
     log.info("Found %d event(s) today across %d allowlisted calendar(s)", len(events), len(allowed_calendar_names))
     return _format_events(events)
+
+
+def get_events(
+    allowed_calendar_names: list[str], days_back: int = 1, days_ahead: int = 60
+) -> list[dict]:
+    """Structured events (title/start/end/all_day as plain Python
+    datetimes and bools) across a wider window than summarize_calendar()'s
+    "today only" - for plant_away.py's calendar-based away detection,
+    which needs to find an already-scheduled future trip, not just
+    what's happening today. Raises on failure - unlike
+    summarize_calendar(), there's no "unavailable" text to degrade to
+    here; callers (plant_away.py) already treat a calendar read failure
+    as "no away event found" via their own try/except, consistent with
+    away detection being a convenience, not a brief section with its own
+    visible failure contract."""
+    store = EventKit.EKEventStore.alloc().init()
+    if not _request_access(store):
+        raise RuntimeError("Calendar access not granted")
+
+    events = _dedupe(_window_events(store, allowed_calendar_names, days_back, days_ahead))
+    return [
+        {
+            "title": ev.title(),
+            "start": datetime.fromtimestamp(ev.startDate().timeIntervalSince1970()),
+            "end": datetime.fromtimestamp(ev.endDate().timeIntervalSince1970()),
+            "all_day": bool(ev.isAllDay()),
+        }
+        for ev in events
+    ]
 
 
 if __name__ == "__main__":

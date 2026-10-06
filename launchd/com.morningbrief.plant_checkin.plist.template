@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Template only. Do not load this file directly — copy it to
+  ~/Library/LaunchAgents/com.morningbrief.plant_checkin.plist and
+  replace every __PROJECT_DIR__ with the absolute path to this
+  directory, and __HOME__ per the comment, first. See ../README.md and
+  ../PLANT_CARE_PROPOSAL.md.
+
+  IMPORTANT — same as the voice job's plist, not the original text
+  job's: __PROJECT_DIR__'s interpreter must be the project's own
+  .venv/bin/python3, not a bare system python3. plant_checkin.py
+  imports brief.py, which imports calendar_events.py (via
+  plant_away.py's calendar-detection path), which needs
+  pyobjc-framework-EventKit - only present in this project's
+  uv-managed venv. See CONTEXT.md's "Known issues" for the exact
+  2026-09-08 incident this class of mistake caused before.
+
+  Runs SEVEN DAYS A WEEK (no Weekday key in StartCalendarInterval below
+  means "every day") - originally weekday-only per the first proposal,
+  changed per the approved revision so it covers the weekend plant
+  check's own flagged plants too (see
+  com.morningbrief.plant_weekend.plist.template). Separate launchd job
+  from the text/voice jobs - a plant-checkin failure can never affect
+  either of those, and vice versa.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.morningbrief.plant_checkin</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>__PROJECT_DIR__/.venv/bin/python3</string>
+        <string>__PROJECT_DIR__/plant_checkin.py</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>__PROJECT_DIR__</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:__HOME__/.local/bin</string>
+    </dict>
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict><key>Hour</key><integer>19</integer><key>Minute</key><integer>30</integer></dict>
+    </array>
+    <key>StandardOutPath</key>
+    <string>__PROJECT_DIR__/state/plant_checkin.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>__PROJECT_DIR__/state/plant_checkin.err.log</string>
+</dict>
+</plist>

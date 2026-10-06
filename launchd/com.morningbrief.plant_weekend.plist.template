@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Template only. Do not load this file directly — copy it to
+  ~/Library/LaunchAgents/com.morningbrief.plant_weekend.plist and
+  replace every __PROJECT_DIR__ with the absolute path to this
+  directory, and __HOME__ per the comment, first. See ../README.md and
+  ../PLANT_CARE_PROPOSAL.md section 9 (option (b)).
+
+  IMPORTANT — same interpreter requirement as
+  com.morningbrief.plant_checkin.plist.template: must be
+  __PROJECT_DIR__/.venv/bin/python3, not a bare system python3 - see
+  that template's comment for why.
+
+  Plant-only, text-only - the existing text/voice brief pipeline
+  (com.morningbrief.scheduled.plist, com.morningbrief.voice.scheduled.plist)
+  only runs weekdays, which left a real gap: a plant with a short
+  range (e.g. basil's 2-4 days) could silently cross its whole range
+  over a weekend with zero warning. Weekday=0 is Saturday,
+  Weekday=6 is Sunday in launchd's convention (0 and 7 both mean
+  Sunday; this uses 0).
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.morningbrief.plant_weekend</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>__PROJECT_DIR__/.venv/bin/python3</string>
+        <string>__PROJECT_DIR__/plant_weekend.py</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>__PROJECT_DIR__</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:__HOME__/.local/bin</string>
+    </dict>
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict><key>Weekday</key><integer>6</integer><key>Hour</key><integer>9</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Weekday</key><integer>0</integer><key>Hour</key><integer>9</integer><key>Minute</key><integer>0</integer></dict>
+    </array>
+    <key>StandardOutPath</key>
+    <string>__PROJECT_DIR__/state/plant_weekend.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>__PROJECT_DIR__/state/plant_weekend.err.log</string>
+</dict>
+</plist>

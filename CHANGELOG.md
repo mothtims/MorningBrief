@@ -3,6 +3,87 @@
 All notable changes to this project. Entries are dated; no semantic
 versioning (pre-release, personal-use project).
 
+## 2026-10-06
+
+### Added — houseplant watering reminders, with proactive Telegram follow-ups
+- A genuinely two-repo feature (`PLANT_CARE_PROPOSAL.md`) — this repo
+  owns the plant data, the watering model, and brief integration;
+  Bizkit's `telegram-bridge` gained two new capabilities
+  (`callback_commands` for inline-keyboard button presses,
+  `text_patterns` for prefix-matched free text) neither of which
+  existed before, both bypassing `invoke_claude()` entirely. See
+  Bizkit's `CHANGELOG.md`/`DECISIONS.md` ADR-0014 for that side.
+- `state/plants.json` seeded with 7 plants (Banana, two Crotons,
+  Dragon tree, Basil, Flaming Katy, Pink quill), each with a base
+  `range_days`, `last_watered`, a `care_note` (pink quill's reads "a
+  small drink and a mist, not a soak" — light *watering*, not light
+  exposure, per a clarified ambiguity in the original request), and
+  `match_terms` for free-text logging.
+- `plant_care.py`: the watering model. Two tunable adjustment layers
+  (a 12-month seasonal multiplier, a four-threshold asymmetric
+  temperature factor with a 30°C+ daily-check override) combine to
+  compute *when* a plant is flagged, while the brief always shows the
+  *original* configured range — never the adjusted one. A
+  `learned_adjustment_days` field grows on repeated "still damp"
+  signals, capped at 50% of a plant's base upper bound and decaying
+  1 day per ~4 weeks without a fresh signal. Full reasoning and exact
+  tunables in `DECISIONS.md` ADR-0006. Uses a new `weather.forecast_highs()`
+  (today + tomorrow) so a hot day gets a warning a day ahead, not a
+  reaction after it's already arrived.
+- `calendar_events.py` gained `get_events()` — structured event data
+  (title/start/end/all_day) across a wider window than
+  `summarize_calendar()`'s "today only," reusing the same TCC-granted
+  EventKit access, for away-mode's calendar detection.
+- `brief.py`/`voice_script.py`: a new `plant_line`, populated only on
+  the 07:00 (morning) send in both text and voice, following the same
+  silent-when-empty contract as the TV watchlist.
+- Away mode (`plant_away.py`): a manual "/plants away N" /
+  "/plants back" command, or automatic detection of a genuinely
+  multi-day, all-day calendar event whose title contains a configured
+  keyword *and* isn't attributed to another household adult (a new,
+  narrow, explicit `household.other_adult_names` config list — kept
+  separate from the LLM-facing `attribution_rules`/`implication_rules`,
+  since this check needs to be deterministic, not prose for a model
+  to apply). Manual always wins when both are present. While away,
+  the morning brief shows one summary line of what falls due during
+  the trip instead of per-plant flagging, and the evening check-in
+  skips entirely.
+- Evening check-in (`plant_checkin.py`, ~19:30, seven days a week —
+  see the weekend note below): one combined Telegram message with
+  Watered/Still damp/Not yet buttons for every plant still "pending"
+  from that morning's flagging. Verifies `plant_daily.json`'s date
+  matches today before trusting its contents — a stale file means
+  nothing pending, not yesterday's list. Button presses
+  (`plant_callback.py`) are idempotent (a re-press after logging gets
+  an instant "Already logged" toast, no message-editing) and
+  deliberately fast (local JSON only, no network calls) to fit inside
+  Telegram's ~10-second callback-answer window.
+- Free-text logging (`plant_log.py`): "watered the basil", "watered
+  everything on the kitchen windowsill". Matches one direction only —
+  a plant's name/location found *in* the input, never the reverse
+  (the original design would have matched almost every plant on a
+  short input like "watered a" — caught and fixed before shipping).
+  "everything"/"all" (matched as whole words) logs every plant.
+- Weekend gap, found during investigation (not something originally
+  asked for): the existing text/voice brief jobs only run weekdays, so
+  a short-range plant like basil could silently cross its whole range
+  over a weekend with zero warning. `plant_weekend.py` (new, Sat/Sun
+  ~09:00) is a lightweight plant-only, text-only message covering the
+  same ground, including the ahead-of-heat warning.
+- Verified extensively against real and synthetic data before
+  presenting: real calendar events via `get_events()`, a real 2-day
+  forecast via `forecast_highs()`, every temperature/seasonal
+  threshold boundary, the cap/decay math over simulated weeks, the
+  due-plant grouped-line format (including pink quill's distinct
+  phrasing) through the full `brief.py`/`voice_script.py` pipeline,
+  the original "watered a" bug reproduced and confirmed fixed,
+  Sarah's-trip-shouldn't-trigger-Tom's-away confirmed via the
+  household filter, idempotent button re-presses, malformed/injection-style
+  callback data rejected before reaching any script, and both
+  latency-sensitive scripts confirmed working under the bridge's own
+  bare interpreter (not just this project's `.venv`, which they don't
+  actually need).
+
 ## 2026-09-30
 
 ### Fixed — the 07:00 voice upload timed out, degraded correctly to text
