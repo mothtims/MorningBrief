@@ -6,6 +6,18 @@ was verified against the real API): a long-lived refresh token (in
 Keychain) is exchanged for a short-lived access token, which is cached
 to state/rtt_access_token.json until its validUntil expiry so we don't
 re-exchange on every request against the 30/min rate limit.
+
+Found 2026-11-10: summarize_leg() hardcoded "+01:00" (BST) as the UTC
+offset for every query, year-round. The UK goes back to GMT (+00:00)
+on the last Sunday of October, so from then until the following
+spring's clock change, every query's time_from was built an hour off
+from what was intended - no exception was raised (the RTT API happily
+accepted a well-formed, just wrong, timestamp), so this surfaced as a
+silently wrong closest-match pick (e.g. a 07:01 service matched
+against a 07:39 target) rather than a logged error. Fixed by using
+zoneinfo's Europe/London, which resolves the correct offset (BST or
+GMT) for whatever date summarize_leg() is actually called on, rather
+than assuming one offset applies all year.
 """
 
 from __future__ import annotations
@@ -14,6 +26,7 @@ import json
 import urllib.parse
 from datetime import datetime, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from httputil import get_json
 from keychain import load_secret
@@ -76,9 +89,12 @@ def summarize_leg(from_crs: str, to_crs: str, departs_hhmm: str, show_platform: 
     project's Whitstable morning leg) never have platform data this
     far ahead, so that fallback text is permanent noise, not a
     genuine degradation worth surfacing."""
-    today = datetime.now().strftime("%Y-%m-%d")
+    now_london = datetime.now(ZoneInfo("Europe/London"))
+    today = now_london.strftime("%Y-%m-%d")
     hour, minute = departs_hhmm.split(":")
-    time_from = f"{today}T{int(hour)-1:02d}:{minute}:00+01:00"
+    naive_start = datetime.strptime(f"{today} {int(hour)-1:02d}:{minute}", "%Y-%m-%d %H:%M")
+    aware_start = naive_start.replace(tzinfo=ZoneInfo("Europe/London"))
+    time_from = aware_start.isoformat()
 
     try:
         services = get_departures(from_crs, to_crs, time_from, window_minutes=120)

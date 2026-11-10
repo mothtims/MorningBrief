@@ -1,6 +1,6 @@
 # Context
 
-*Last updated: 2026-10-06 — keep this current as things change. This is a
+*Last updated: 2026-11-10 — keep this current as things change. This is a
 living snapshot, not history — full history lives in `CHANGELOG.md`, full
 reasoning behind decisions in `DECISIONS.md` (project-local, from
 ADR-0001 on), `VOICE_PROPOSAL.md`/`CALENDAR_PROPOSAL.md`/`TV_TECH_PROPOSAL.md`/
@@ -287,6 +287,14 @@ feature this project has needed.
   human noticing and dismissing a prompt takes far longer than any
   reasonable timeout anyway — so failing fast and letting the
   degradation contract run is strictly better than a longer wait.
+- **`trains.py` resolves its UTC offset via `zoneinfo`, not a
+  hardcoded constant**: the original code assumed `+01:00` (BST)
+  year-round, which was silently wrong for the entire GMT half of the
+  year (late October to late March) — found 2026-11-10 when the
+  matched train turned out to be 38 minutes off target. `Europe/London`
+  via `zoneinfo` resolves the correct offset for whatever date it's
+  actually run on, so this doesn't need revisiting at the next clock
+  change either way.
 - **Plant watering uses a tunable model, not a fixed schedule**: a
   12-month seasonal multiplier and a four-threshold temperature factor
   (asymmetric — heat dominates, cold is mild, with a 30°C+ hard

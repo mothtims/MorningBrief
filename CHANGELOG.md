@@ -3,6 +3,33 @@
 All notable changes to this project. Entries are dated; no semantic
 versioning (pre-release, personal-use project).
 
+## 2026-11-10
+
+### Fixed — train times silently wrong since the October clock change
+- User noticed the brief's matched train (07:01) was far from the
+  configured target (07:39) and asked what was wrong. Root cause:
+  `trains.py`'s `summarize_leg()` hardcoded `+01:00` (BST) as the UTC
+  offset for every query's `time_from`, year-round. The UK went back
+  to GMT (`+00:00`) on the last Sunday of October — from then until
+  the next spring's clock change, every query was built exactly one
+  hour off from what was intended. No exception was raised (the RTT
+  API accepted the well-formed, just-wrong, timestamp), so this never
+  surfaced as a logged error — only as a silently wrong closest-match
+  pick, invisible unless someone actually checked the matched time
+  against the configured one.
+- Fixed by using `zoneinfo`'s `Europe/London` to resolve the correct
+  offset (BST or GMT) for whatever date `summarize_leg()` is actually
+  called on, instead of assuming one offset applies all year.
+  `scheduleAdvertised` (the API's own returned departure times) was
+  confirmed to already be naive local wall-clock time with no offset,
+  so the downstream closest-match comparison logic was never affected
+  — this was isolated to the one `time_from` query parameter.
+- Verified against real data: before the fix, the morning leg matched
+  a 07:01 service against a 07:39 target; after, it correctly matches
+  07:39. Also verified the fix resolves to `+01:00` for a summer date
+  and `+00:00` for a winter date, so this doesn't just trade today's
+  bug for next April's.
+
 ## 2026-10-06
 
 ### Added — houseplant watering reminders, with proactive Telegram follow-ups
