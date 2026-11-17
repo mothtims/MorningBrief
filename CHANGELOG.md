@@ -3,6 +3,40 @@
 All notable changes to this project. Entries are dated; no semantic
 versioning (pre-release, personal-use project).
 
+## 2026-11-17
+
+### Fixed — "zero headlines" degradation was completely silent
+- User reported the voice brief said "the news didn't load this
+  morning, so you're flying low on headlines" while the text brief
+  that same morning read correctly. Investigated: no error was logged
+  anywhere for either process at 07:00 that day, and manually
+  re-running `politics.py` right afterward succeeded cleanly with real
+  content - so this wasn't the "Not logged in" auth issue recurring
+  (confirmed separately: that hasn't recurred since the 2026-11-10
+  `/login`), and it wasn't a `claude -p` failure either (that path
+  degrades to a plain headline list, not "unavailable" phrasing).
+- Root cause: `fetch_headlines()` in both `politics.py` and
+  `tech_news.py` can return an empty list without raising any
+  exception - e.g. the BBC feed momentarily serving a 200 OK with zero
+  `<item>` elements (a stale edge-cache snapshot, a feed refresh in
+  progress). `httputil.get_bytes()`'s retry logic only covers HTTP
+  5xx responses and network errors, never "the request succeeded but
+  came back empty" - a real blind spot. The resulting
+  `if not headlines:` branch in both files returned its degraded text
+  with **no log line at all**, unlike every other failure path in
+  either file. Text and voice are two fully independent processes,
+  each fetching the feed separately at the same scheduled 07:00 time -
+  entirely plausible for a transient edge/cache hiccup to hit one
+  request and not the near-simultaneous other.
+- Fixed by adding a `log.warning()` to the zero-headlines branch in
+  both files, so this degradation mode is visible in
+  `state/morningbrief.log` going forward instead of only inferable
+  after the fact from a user report. Verified: forcing
+  `fetch_headlines()` to return `[]` now logs
+  `"Headline fetch returned zero items..."` in both modules before
+  returning the same degraded text as before - behavior unchanged,
+  visibility added.
+
 ## 2026-11-10
 
 ### Fixed — train times silently wrong since the October clock change

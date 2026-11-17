@@ -1,6 +1,6 @@
 # Context
 
-*Last updated: 2026-11-10 — keep this current as things change. This is a
+*Last updated: 2026-11-17 — keep this current as things change. This is a
 living snapshot, not history — full history lives in `CHANGELOG.md`, full
 reasoning behind decisions in `DECISIONS.md` (project-local, from
 ADR-0001 on), `VOICE_PROPOSAL.md`/`CALENDAR_PROPOSAL.md`/`TV_TECH_PROPOSAL.md`/
@@ -295,6 +295,18 @@ feature this project has needed.
   via `zoneinfo` resolves the correct offset for whatever date it's
   actually run on, so this doesn't need revisiting at the next clock
   change either way.
+- **"Zero headlines" is a logged warning, not silent, in both
+  `politics.py` and `tech_news.py`**: an empty-but-successful RSS
+  fetch (no exception) used to degrade with no log line at all — found
+  2026-11-17 when a one-off news dropout (voice said "the news didn't
+  load," text that same morning was fine — two independent processes
+  hitting the same feed at the same scheduled time) was undiagnosable
+  after the fact. `httputil.get_bytes()`'s retry logic only covers
+  HTTP 5xx/network errors, never "succeeded but came back empty" — a
+  real gap, not fixed there, since retrying inside `get_bytes()` would
+  need to know what "empty" means for every caller's data shape.
+  Logging at the call site (where the shape is known) was the simpler
+  fix.
 - **Plant watering uses a tunable model, not a fixed schedule**: a
   12-month seasonal multiplier and a four-threshold temperature factor
   (asymmetric — heat dominates, cold is mild, with a 30°C+ hard

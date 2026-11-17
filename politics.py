@@ -51,6 +51,7 @@ def summarize_politics() -> str:
         return f"Politics headlines unavailable right now ({exc})."
 
     if not headlines:
+        log.warning("Headline fetch returned zero items (feed reachable, no exception raised)")
         return "No politics headlines available right now."
 
     headline_text = "\n".join(f"- {title}: {desc}" for title, desc in headlines)

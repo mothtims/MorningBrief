@@ -51,6 +51,7 @@ def summarize_tech() -> str:
         return f"Tech news unavailable right now ({exc})."
 
     if not headlines:
+        log.warning("Headline fetch returned zero items across all feeds (reachable, no exception raised)")
         return "No tech news available right now."
 
     headline_text = "\n".join(f"- {title}: {desc}" for title, desc in headlines)
